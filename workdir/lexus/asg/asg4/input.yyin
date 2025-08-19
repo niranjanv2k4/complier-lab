@@ -1,0 +1,21 @@
+#include <stdio.h>
+
+int main() {
+    // This is a single-line comment
+    int a = 5;  // Initializing variable a
+    int b = 10; // Initializing variable b
+
+    /*
+      // this is nested
+      * This is a multi-line comment.
+      * It explains that we're adding two numbers
+      * and printing the result.
+    */
+    /* ****** */
+    /* this is **not*/ the end yet */
+    /*
+    int sum = a + b;
+    printf("Sum: %d\n", sum);
+
+    return 0;
+}
