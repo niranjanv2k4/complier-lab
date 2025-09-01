@@ -17,9 +17,9 @@ int getReg(){
     return -1;
 }
 
-int freeReg(int r){
-    if(r>=0 && r<20 && (used & (1u <<r))){
-        used &= ~(1u <<r);
+int freeReg(int reg){
+    if(reg>=0 && reg<20 && (used & (1u <<reg))){
+        used &= ~(1u <<reg);
         return 0;
     }
     return -1;
@@ -75,8 +75,10 @@ int codeGen(struct tnode* root, FILE* output){
 
         case NODE_WRITE:{
             int reg = exprEvaluate(root->left, output);
+
             writeToTerminal(output, reg);
             freeReg(reg);
+            
             return -1;
         }
 
@@ -84,10 +86,13 @@ int codeGen(struct tnode* root, FILE* output){
             int reg = exprEvaluate(root->right, output);
             int addr = getReg();
             int offset = root->left->varname[0] - 'a';
+
             fprintf(output, "MOV R%d, 4096\nADD R%d, %d\n", addr, addr, offset);
             fprintf(output, "MOV [R%d], R%d\n", addr, reg);
+
             freeReg(reg);
             freeReg(addr);
+
             return -1;
         }
 
@@ -102,7 +107,7 @@ int codeGen(struct tnode* root, FILE* output){
     }
 }
 
-void writeToTerminal(FILE* output, int r){
+void writeToTerminal(FILE* output, int reg){
 
     int r1 = getReg();
     if(r1==-1){
@@ -113,7 +118,7 @@ void writeToTerminal(FILE* output, int r){
     fprintf(output, "MOV R%d, \"Write\"\nPUSH R%d\n", r1, r1);
     fprintf(output, "MOV R%d, -2\nPUSH R%d\n", r1, r1);
 
-    fprintf(output, "PUSH R%d\n", r);
+    fprintf(output, "PUSH R%d\n", reg);
     fprintf(output, "PUSH R%d\nPUSH R%d\n", r1, r1);
 
     fprintf(output, "CALL 0\n");
@@ -153,13 +158,13 @@ void readFromTerminal(FILE* output, char a){
 
 
 void exitProg(FILE* output){
-    int r = getReg();
+    int r1 = getReg();
 
-    fprintf(output, "MOV R%d, \"Exit\"\nPUSH R%d\n", r, r);
-    fprintf(output, "PUSH R%d\nPUSH R%d\nPUSH R%d\nPUSH R%d\n", r, r, r, r);
+    fprintf(output, "MOV R%d, \"Exit\"\nPUSH R%d\n", r1, r1);
+    fprintf(output, "PUSH R%d\nPUSH R%d\nPUSH R%d\nPUSH R%d\n", r1, r1, r1, r1);
     fprintf(output, "CALL 0");
 
-    freeReg(r);
+    freeReg(r1);
 }
 
 
@@ -176,6 +181,7 @@ int exprEvaluate(struct tnode* root, FILE* output){
         }
         else if(root->type==TYPE_ID){
             int offset = root->varname[0] - 'a';
+
             fprintf(output, "MOV R%d, 4096\nADD R%d, %d\n", reg, reg, offset);
             fprintf(output, "MOV R%d, [R%d]\n", reg, reg);
 
@@ -190,12 +196,15 @@ int exprEvaluate(struct tnode* root, FILE* output){
         case NODE_ADD:   
             fprintf(output, "ADD R%d, R%d\n", left, right);
             break;
+
         case NODE_SUB:   
             fprintf(output, "SUB R%d, R%d\n", left, right);
             break;
+
         case NODE_MUL:   
             fprintf(output, "MUL R%d, R%d\n", left, right);
             break;
+
         case NODE_DIV:   
             fprintf(output, "DIV R%d, R%d\n", left, right);
             break;
@@ -225,32 +234,41 @@ int evaluate(struct tnode* root){
     }
 
     switch (root->nodetype){
+
         case NODE_ADD:
             return evaluate(root->left) + evaluate(root->right);
+
         case NODE_SUB:
             return evaluate(root->left) - evaluate(root->right);
+
         case NODE_MUL:
             return evaluate(root->left) * evaluate(root->right);
+
         case NODE_DIV:
             return evaluate(root->left) / evaluate(root->right);
+
         case NODE_ASSIGN:{
             arr[root->left->varname[0] - 'a'] = evaluate(root->right);
             return -1;
         }
+
         case NODE_CONNECTOR:{
             evaluate(root->left);
             evaluate(root->right);
             return -1;
         }
+
         case NODE_WRITE:{
             printf("%d\n", evaluate(root->left));
             return -1;
         }
+
         case NODE_READ:{
             int idx = root->left->varname[0] - 'a';
             scanf("%d", &arr[idx]);
             return -1;
         }
+
         default:
             return -1;  
     }

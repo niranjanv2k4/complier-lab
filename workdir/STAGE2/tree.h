@@ -38,8 +38,7 @@ struct tnode* createOperatorNode(int nodetype, struct tnode* left, struct tnode*
 
 /* -----operators----- */
 struct tnode* createAssignNode(struct tnode* left, struct tnode* right);
-struct tnode* createWriteNode(struct tnode* exprNode);
-struct tnode* createReadNode(struct tnode* idNode);
+struct tnode* createInOutNode(int nodetype, struct tnode* InOutNode);
 struct tnode* createConnecterNode(struct tnode* left, struct tnode* right);
 
 int evaluate(struct tnode* root);

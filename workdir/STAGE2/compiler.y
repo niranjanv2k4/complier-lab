@@ -43,9 +43,9 @@ Stmt        :   InputStmt                           {   $$ = $1; }
             |   OutputStmt                          {   $$ = $1; }
             |   AsgnStmt                            {   $$ = $1; }
             ;
-InputStmt   :   READ'('ID')' SEMI_COLON             {   $$ = createReadNode($3);   }
+InputStmt   :   READ'('ID')' SEMI_COLON             {   $$ = createInOutNode(NODE_READ, $3);   }
             ;
-OutputStmt  :   WRITE'(' expr ')' SEMI_COLON        {   $$ = createWriteNode($3);     }
+OutputStmt  :   WRITE'(' expr ')' SEMI_COLON        {   $$ = createInOutNode(NODE_WRITE, $3);     }
             ;
 AsgnStmt    :   ID ASSGN expr SEMI_COLON            {   $$ = createAssignNode($1, $3);    }
             ;
