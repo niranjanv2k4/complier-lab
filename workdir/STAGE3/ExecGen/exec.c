@@ -9,9 +9,25 @@ int exprEvaluate(struct tnode* root, FILE* output);
 static uint32_t used = 0;
 int newLabel = 0;
 
-/* Variables for while loop */
-int startLabel = -1;
-int endLabel = -1;
+
+/* array for keeping track of current  loop labels */
+static struct LoopLabels loopStack[MAX_LOOP_NESTING];
+static int loopTop = -1;
+
+void pushLoop(int start, int end) {
+    loopTop++;
+    loopStack[loopTop].start = start;
+    loopStack[loopTop].end   = end;
+}
+void popLoop(void) {
+    loopTop--;
+}
+int getLoopStart(void) {
+    return loopStack[loopTop].start;
+}
+int getLoopEnd(void) {
+    return loopStack[loopTop].end;
+}
 
 /* -----Register & label managing----- */
 int getReg(){
@@ -240,8 +256,10 @@ void generateIfElseBlock(FILE* output, struct tnode* root){
 
 void generateWhileBlock(FILE* output, struct tnode* root){
 
-    startLabel = getNewLabel();
-    endLabel = getNewLabel();
+    int startLabel = getNewLabel();
+    int endLabel = getNewLabel();
+
+    pushLoop(startLabel, endLabel);
 
     fprintf(output, "L%d:\n", startLabel);
 
@@ -249,17 +267,19 @@ void generateWhileBlock(FILE* output, struct tnode* root){
 
     fprintf(output, "JZ R%d, L%d\n", flag, endLabel);
     codeGen(root->right, output);
+
     fprintf(output, "JMP L%d\n", startLabel);
     fprintf(output, "L%d:\n", endLabel);
 
-    startLabel = -1;
-    endLabel = -1;
+    popLoop();
 }
 
 void generateDoWhileBlock(FILE* output, struct tnode* root){
 
-    startLabel = getNewLabel();
-    endLabel = getNewLabel();
+    int startLabel = getNewLabel();
+    int endLabel = getNewLabel();
+
+    pushLoop(startLabel, endLabel);
 
     fprintf(output, "L%d:\n", startLabel);
     codeGen(root->right, output);
@@ -268,14 +288,17 @@ void generateDoWhileBlock(FILE* output, struct tnode* root){
 
     fprintf(output, "JNZ R%d, L%d\n", flag, startLabel);
 
-    endLabel = -1;
-    startLabel = -1;
+    fprintf(output, "L%d:\n", endLabel);
+
+    popLoop();
 }
 
 void generateRptUtlBlock(FILE* output, struct tnode* root){
 
-    startLabel = getNewLabel();
-    endLabel = getNewLabel();
+    int startLabel = getNewLabel();
+    int endLabel = getNewLabel();
+
+    pushLoop(startLabel, endLabel);
 
     fprintf(output, "L%d:\n", startLabel);
     codeGen(root->right, output);
@@ -284,8 +307,9 @@ void generateRptUtlBlock(FILE* output, struct tnode* root){
 
     fprintf(output, "JZ R%d, L%d\n", flag, startLabel);
 
-    endLabel = -1;
-    startLabel = -1;
+    fprintf(output, "L%d:\n", endLabel);
+
+    popLoop();
 }
 
 int codeGen(struct tnode* root, FILE* output){
@@ -372,15 +396,15 @@ int codeGen(struct tnode* root, FILE* output){
         }
 
         case NODE_BREAK:{
-            if(startLabel!=-1 && endLabel!=-1){
-                fprintf(output, "JMP L%d\n", endLabel);
+            if(loopTop >=0 ){
+                fprintf(output, "JMP L%d\n", getLoopEnd());
             }
             return -1;
         }
 
         case NODE_CONTINUE:{
-            if(startLabel!=-1 && endLabel!=-1){
-                fprintf(output, "JMP L%d\n", startLabel);
+            if(loopTop>=0){
+                fprintf(output, "JMP L%d\n", getLoopStart());
             }
             return -1;
         }
@@ -395,7 +419,7 @@ void createOutput(struct tnode* root, FILE* output){
 
     // header for the executable
     fprintf(output, "0\n2056\n0\n0\n0\n0\n0\n0\n");
-    fprintf(output, "ADD SP, 26\n");
+    fprintf(output, "BRKP\nADD SP, 26\n");
 
     int r = codeGen(root, output);
 

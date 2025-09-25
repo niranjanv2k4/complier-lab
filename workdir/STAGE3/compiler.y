@@ -62,9 +62,9 @@ IfStmt      :   IF '(' expr ')' THEN Slist ELSE Slist ENDIF SEMI_COLON   {  $$ =
             ;
 WhileStmt   :   WHILE '(' expr ')' DO Slist END_WHILE SEMI_COLON         {  $$ = createLoopNode(NODE_WHILE, $3, $6);   }
             ;
-RptUntlStmt :   REPEAT Slist UNTILL '(' expr ')' SEMI_COLON              {  $$ = createLoopNode(NODE_RPTUTL, $5, $2);   }
+RptUntlStmt :   REPEAT '{' Slist '}' UNTILL '(' expr ')' SEMI_COLON      {  $$ = createLoopNode(NODE_RPTUTL, $7, $3);   }
             ;
-DoWhileStmt :   DO Slist WHILE '(' expr ')' SEMI_COLON                   {  $$ = createLoopNode(NODE_DOWHILE, $5, $2);   }
+DoWhileStmt :   DO '{' Slist '}'  WHILE '(' expr ')' SEMI_COLON          {  $$ = createLoopNode(NODE_DOWHILE, $7, $3);   }
             ;
 expr        :   expr ADD expr                         {   $$ = createTreeNode(NODE_ADD, $1, $3); }
             |   expr SUB expr                         {   $$ = createTreeNode(NODE_SUB, $1, $3); }

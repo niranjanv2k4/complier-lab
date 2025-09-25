@@ -47,6 +47,22 @@ numbers     [0-9]+
                                             CurrAddr += 2;
                                         }
                                     }
+"JNZ "{register}", "{label}\n       {   
+                                        if(tableCreated){
+                                            char reg[10], label[10];
+                                            sscanf(yytext, "JNZ %[^,], %s", reg, label);
+                                            int labelAddr = getAddr(labelList, label);
+
+                                            if(labelAddr == -1){
+                                                printf("Label undeclared\n");
+                                                exit(1);
+                                            }
+
+                                            fprintf(translated, "JNZ %s, %d\n", reg, labelAddr);
+                                        }else{
+                                            CurrAddr += 2;
+                                        }
+                                    }
 "JMP "{label}\n                     {   
                                         if(tableCreated){
                                             char reg[10], label[10];

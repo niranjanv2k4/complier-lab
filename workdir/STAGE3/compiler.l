@@ -49,7 +49,7 @@ numbers     [0-9]+
 "continue"      {   return CONTINUE;    }
 
 "repeat"        {   return REPEAT;  }
-"untill"        {   return UNTILL;  }
+"until"         {   return UNTILL;  }
 
 "<="            {   return LE;  }
 ">="            {   return GE;  }
