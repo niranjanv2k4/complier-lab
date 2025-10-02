@@ -34,7 +34,7 @@ struct Gnode* lookup(struct Gnode* head, char* name){
     return NULL;
 }
 
-struct Gnode* insert(struct Gnode* head, struct tnode* id, int type, int size, bool isArray){
+struct Gnode* insert(struct Gnode* head, struct tnode* id, int type, int rowSize, int colSize, bool isArray){
 
     if(lookup(head, id->varname)!=NULL){
         printf("Variable '%s' already declared\n", id->varname);
@@ -49,9 +49,11 @@ struct Gnode* insert(struct Gnode* head, struct tnode* id, int type, int size, b
     node->type = type;
 
     node->isArray = isArray;
+    node->rowSize = rowSize;
+    node->colSize = colSize;
 
-    node->size = size;
-    node->binding = getMem(size);
+    node->size = rowSize*colSize;
+    node->binding = getMem(node->size);
 
     node->next = NULL;
 

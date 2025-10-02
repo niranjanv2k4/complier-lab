@@ -104,14 +104,15 @@ struct tnode* createLeafNode(int type, char* varname, int val, char* str_val){
     return node;
 }
 
-struct tnode* createArrayNode(struct tnode* id, struct tnode* expr){
+struct tnode* createArrayNode(struct tnode* id, struct tnode* row, struct tnode* col){
 
     if(!(id->STentry->isArray)){
         printf("'%s' is not an array\n", id->varname);
         exit(1);
     }
 
-    id->left = expr;
+    id->left = row;
+    id->right = col;
 
     return id;
 }

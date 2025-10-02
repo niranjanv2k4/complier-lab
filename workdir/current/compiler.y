@@ -34,6 +34,7 @@
 %type <node> IfStmt AsgnStmt OutputStmt InputStmt
 %type <node> Stmt Slist expr
 %type <node> WhileStmt RptUntlStmt DoWhileStmt
+%type <node> IDENTIFIERS
 
 %left ADD SUB
 %left MUL DIV
@@ -64,28 +65,13 @@ Stmt        :   InputStmt                           {   $$ = $1; }
             |   RptUntlStmt                         {   $$ = $1; }
             |   DoWhileStmt                         {   $$ = $1; }
             ;
-InputStmt   :   READ'('ID')' EOL                    {   
-                                                        setType(list, $3);
-                                                        $$ = createTreeNode(NODE_READ, $3, NULL);   
-                                                    }
-            |   READ '(' ID '[' expr ']' ')' EOL    {   
-                                                        setType(list, $3);
-                                                        $3 = createArrayNode($3, $5);
-                                                        $$ = createTreeNode(NODE_READ, $3, NULL);
-                                                    }
+InputStmt   :   READ'('IDENTIFIERS')' EOL           {   $$ = createTreeNode(NODE_READ, $3, NULL);   }
             ;
 OutputStmt  :   WRITE'(' expr ')' EOL               {   $$ = createTreeNode(NODE_WRITE, $3, NULL);     }
             ;
-AsgnStmt    :   ID ASSGN expr EOL                   {   
-                                                        setType(list, $1);
-                                                        $$ = createTreeNode(NODE_ASSIGN, $1, $3);    
-                                                    }
-            |   ID '[' expr ']'  ASSGN expr EOL     {   
-                                                        setType(list, $1);
-                                                        $1 = createArrayNode($1, $3);
-                                                        $$ = createTreeNode(NODE_ASSIGN, $1, $6);
-                                                    }
+AsgnStmt    :   IDENTIFIERS ASSGN expr EOL          {   $$ = createTreeNode(NODE_ASSIGN, $1, $3);    }
             ;
+
 IfStmt      :   IF '(' expr ')' THEN Slist ELSE Slist ENDIF EOL  {  $$ = createIfNode($3, $6, $8);  }
             |   IF '(' expr ')' THEN Slist ENDIF EOL             {  $$ = createIfNode($3, $6, NULL); }
             ;
@@ -107,10 +93,12 @@ Decl        :   Type Varlist  EOL                                       {  }
 Type        :   INT                                                     {  current_type = TYPE_ID_INT;  }
             |   STR                                                     {  current_type = TYPE_ID_STR;  }
             ;
-Varlist     :   Varlist ',' ID                                          {  list = insert(list, $3, current_type, 1, false);    }
-            |   Varlist ',' ID '[' NUM ']'                              {  list = insert(list, $3, current_type, ($5)->val, true);  }
-            |   ID                                                      {  list = insert(list, $1, current_type, 1, false);    }
-            |   ID '[' NUM ']'                                          {  list = insert(list, $1, current_type, ($3)->val, true);    }
+Varlist     :   Varlist ',' ID                                          {  list = insert(list, $3, current_type, 1, 1, false);    }
+            |   Varlist ',' ID '[' NUM ']'                              {  list = insert(list, $3, current_type, 1, ($5)->val, true);  }
+            |   Varlist ',' ID '[' NUM ']''[' NUM ']'                   {  list = insert(list, $3, current_type, ($5)->val, ($8)->val, true);  }
+            |   ID                                                      {  list = insert(list, $1, current_type, 1, 1, false);    }
+            |   ID '[' NUM ']'                                          {  list = insert(list, $1, current_type, 1, ($3)->val, true);    }
+            |   ID '[' NUM ']''[' NUM ']'                               {  list = insert(list, $1, current_type, ($3)->val, ($6)->val, true);   }
             ;
 
 
@@ -127,13 +115,20 @@ expr        :   expr ADD expr                       {   $$ = createTreeNode(NODE
             |   '(' expr ')'                        {   $$ = $2;    }
             |   NUM                                 {   $$ = $1;    }
             |   STR_LITERAL                         {   $$ = $1;    }
-            |   ID                                  {   
+            |   IDENTIFIERS                         {   $$ = $1;    }
+            ;
+IDENTIFIERS :   ID                                  {   
                                                         setType(list, $1);
-                                                        $$ = $1;    
+                                                        $$ = $1; 
                                                     }
             |   ID '[' expr ']'                     {   
                                                         setType(list, $1); 
-                                                        $1 = createArrayNode($1, $3);
+                                                        $1 = createArrayNode($1, $3, NULL);
+                                                        $$ = $1;
+                                                    }
+            |   ID '[' expr ']' '[' expr ']'        {   
+                                                        setType(list, $1); 
+                                                        $1 = createArrayNode($1, $3, $6);
                                                         $$ = $1;
                                                     }
             ;

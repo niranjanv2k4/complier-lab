@@ -11,7 +11,11 @@ struct Gnode{
     int type;
     int size;
     int binding;
+    
     bool isArray;
+    int rowSize;
+    int colSize;
+    
     struct Gnode* next;
 };
 

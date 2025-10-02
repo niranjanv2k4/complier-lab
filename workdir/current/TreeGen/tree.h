@@ -6,7 +6,7 @@
 struct tnode* createLeafNode(int type, char* varname, int val, char* str_val);
 struct tnode* createTreeNode(int nodetype, struct tnode* left, struct tnode* right);
 
-struct tnode* createArrayNode(struct tnode* id, struct tnode* expr);
+struct tnode* createArrayNode(struct tnode* id, struct tnode* row, struct tnode* col);
 
 void isValid(struct tnode* id, int index);
 #endif

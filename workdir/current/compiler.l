@@ -64,7 +64,7 @@ numbers     [0-9]+
 "int"           {   return INT; }
 "str"           {   return STR; }
 
-[a-z]+          {   yylval.node = createLeafNode(NO_TYPE, strdup(yytext), 0, NULL); 
+[a-zA-Z]+          {   yylval.node = createLeafNode(NO_TYPE, strdup(yytext), 0, NULL); 
                     return ID;  
                 }
 

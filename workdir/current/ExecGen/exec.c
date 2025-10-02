@@ -88,12 +88,22 @@ void readFromTerminal(FILE* output, struct tnode* root){
     fprintf(output, "MOV R%d, %d\n", reg, addr);
 
     if(root->STentry->isArray){
-        int offset = exprEvaluate(root->left, output);
-        // int check = getReg();
-        // fprintf(output, "MOV R%d, R%d\n", check, root->STentry->size);
-        // fprintf()
-        fprintf(output, "ADD R%d, R%d\n", reg, offset);
-        freeReg(offset);
+        if(root->right==NULL){
+            int colOffset = exprEvaluate(root->left, output);
+            fprintf(output, "ADD R%d, R%d\n", reg, colOffset);
+            freeReg(colOffset);
+        }else{
+            int rowOffset = exprEvaluate(root->right, output);
+            int colOffset = exprEvaluate(root->left, output);
+
+            fprintf(output, "MOV R%d, %d\n", temp, root->STentry->colSize);
+            fprintf(output, "MUL R%d, R%d\n", temp, rowOffset);
+            fprintf(output, "ADD R%d, R%d\n", temp, colOffset);
+            fprintf(output, "ADD R%d, R%d\n", reg, temp);
+
+            freeReg(colOffset);
+            freeReg(rowOffset);
+        }  
     }
 
     fprintf(output, "MOV R%d, \"Read\"\nPUSH R%d\n", temp, temp);
@@ -124,6 +134,7 @@ void exitProg(FILE* output){
 int codeGen(struct tnode* root, FILE* output);
 
 int exprEvaluate(struct tnode* root, FILE* output){
+    if(root==NULL)return -1;
     if(root->nodetype==NODE_LEAF){
         int reg = getReg();
 
@@ -142,22 +153,32 @@ int exprEvaluate(struct tnode* root, FILE* output){
             case TYPE_ID_STR: {
                 
                 int addr = root->STentry->binding;
+                fprintf(output, "MOV R%d, %d\n", reg, addr);
                 
                 if(root->STentry->isArray){
-                    int offset = exprEvaluate(root->left, output);
+                    if(root->right==NULL){
+                        int colOffset = exprEvaluate(root->left, output);
+                        fprintf(output,"ADD R%d, R%d\n", reg, colOffset);
+                        freeReg(colOffset);
+                    }
+                    else{
+                        int rowOffset = exprEvaluate(root->right, output);
+                        int colOffset = exprEvaluate(root->left, output);
 
-                    int temp = getReg();
+                        int temp = getReg();
 
-                    fprintf(output, "MOV R%d, %d\n", temp, addr);
-                    fprintf(output, "ADD R%d, R%d\n", temp, offset);
-                    fprintf(output, "MOV R%d, [R%d]\n", reg, temp);
+                        fprintf(output, "MOV R%d, %d\n", temp, root->STentry->colSize);
+                        fprintf(output, "MUL R%d, R%d\n", temp, rowOffset);
+                        fprintf(output, "ADD R%d, R%d\n", temp, colOffset);
+                        fprintf(output, "ADD R%d, R%d\n", reg, temp);
 
-                    freeReg(temp);
-                    freeReg(offset);
+                        freeReg(temp);
+                        freeReg(rowOffset);
+                        freeReg(colOffset);
+                    }
                 }
-                else{
-                    fprintf(output, "MOV R%d, [%d]\n", reg, addr);
-                }
+                
+                fprintf(output, "MOV R%d, [R%d]\n", reg, reg);
             }
         }
         return reg;
@@ -207,19 +228,32 @@ int boolEvaluate(struct tnode* root, FILE* output){
             case TYPE_ID_STR: {
                 
                 int addr = root->STentry->binding;
-                int offset = 0;
-                if(root->STentry->isArray){
-                    int offset = exprEvaluate(root->left, output);
-                }
-
-                int temp = getReg();
-
-                fprintf(output, "MOV R%d, %d\n", temp, offset);
                 fprintf(output, "MOV R%d, %d\n", reg, addr);
-                fprintf(output, "ADD R%d, R%d\n", reg, temp);
-                fprintf(output, "MOV R%d, [R%d]\n", reg, reg);
+                
+                if(root->STentry->isArray){
+                    if(root->right==NULL){
+                        int colOffset = exprEvaluate(root->left, output);
+                        fprintf(output,"ADD R%d, R%d\n", reg, colOffset);
+                        freeReg(colOffset);
+                    }
+                    else{
+                        int rowOffset = exprEvaluate(root->right, output);
+                        int colOffset = exprEvaluate(root->left, output);
 
-                freeReg(temp);
+                        int temp = getReg();
+
+                        fprintf(output, "MOV R%d, %d\n", temp, root->STentry->colSize);
+                        fprintf(output, "MUL R%d, R%d\n", temp, rowOffset);
+                        fprintf(output, "ADD R%d, R%d\n", temp, colOffset);
+                        fprintf(output, "ADD R%d, R%d\n", reg, temp);
+
+                        freeReg(temp);
+                        freeReg(rowOffset);
+                        freeReg(colOffset);
+                    }
+                }
+                
+                fprintf(output, "MOV R%d, [R%d]\n", reg, reg);
             }
         }
         return reg;
@@ -372,22 +406,32 @@ int codeGen(struct tnode* root, FILE* output){
             case TYPE_ID_STR: {
                 
                 int addr = root->STentry->binding;
+                fprintf(output, "MOV R%d, %d\n", reg, addr);
                 
                 if(root->STentry->isArray){
-                    int offset = exprEvaluate(root->left, output);
+                    if(root->right==NULL){
+                        int colOffset = exprEvaluate(root->left, output);
+                        fprintf(output,"ADD R%d, R%d\n", reg, colOffset);
+                        freeReg(colOffset);
+                    }
+                    else{
+                        int rowOffset = exprEvaluate(root->right, output);
+                        int colOffset = exprEvaluate(root->left, output);
 
-                    int temp = getReg();
+                        int temp = getReg();
 
-                    fprintf(output, "MOV R%d, %d\n", temp, addr);
-                    fprintf(output, "ADD R%d, R%d\n", temp, offset);
-                    fprintf(output, "MOV R%d, [R%d]\n", reg, temp);
+                        fprintf(output, "MOV R%d, %d\n", temp, root->STentry->colSize);
+                        fprintf(output, "MUL R%d, R%d\n", temp, rowOffset);
+                        fprintf(output, "ADD R%d, R%d\n", temp, colOffset);
+                        fprintf(output, "ADD R%d, R%d\n", reg, temp);
 
-                    freeReg(temp);
-                    freeReg(offset);
+                        freeReg(temp);
+                        freeReg(rowOffset);
+                        freeReg(colOffset);
+                    }
                 }
-                else{
-                    fprintf(output, "MOV R%d, [%d]\n", reg, addr);
-                }
+                
+                fprintf(output, "MOV R%d, [R%d]\n", reg, reg);
             }
         }
 
@@ -417,26 +461,41 @@ int codeGen(struct tnode* root, FILE* output){
         }
 
         case NODE_ASSIGN:{
+            int res = exprEvaluate(root->right, output);
             
+            int reg = getReg();
             int addr = root->left->STentry->binding;
-            int reg = exprEvaluate(root->right, output);
+
+            fprintf(output, "MOV R%d, %d\n", reg, addr);
             
             if(root->left->STentry->isArray){
-                int offset = exprEvaluate(root->left->left, output);
-                int temp = getReg();
+                if(root->left->right==NULL){
+                    int colOffset = exprEvaluate(root->left->left, output);
+                    fprintf(output,"ADD R%d, R%d\n", reg, colOffset);
+                    freeReg(colOffset);
+                }
+                else{
+                    int rowOffset = exprEvaluate(root->left->right, output);
+                    int colOffset = exprEvaluate(root->left->left, output);
 
-                fprintf(output, "MOV R%d, %d\n", temp, addr);
-                fprintf(output, "ADD R%d, R%d\n", temp, offset);
-                fprintf(output, "MOV [R%d], R%d\n", temp, reg);
+                    int temp = getReg();
 
-                freeReg(temp);
-                freeReg(offset);
+                    fprintf(output, "MOV R%d, %d\n", temp, root->left->STentry->colSize);
+                    fprintf(output, "MUL R%d, R%d\n", temp, rowOffset);
+                    fprintf(output, "ADD R%d, R%d\n", temp, colOffset);
+                    fprintf(output, "ADD R%d, R%d\n", reg, temp);
+
+                    freeReg(temp);
+                    freeReg(rowOffset);
+                    freeReg(colOffset);
+                }
             }
-            else{
-                fprintf(output, "MOV [%d], R%d\n", addr, reg);
-            }
+            
+            fprintf(output, "MOV [R%d], R%d\n", reg, res);
 
+            freeReg(res);
             freeReg(reg);
+
             return -1;
         }
 
@@ -491,7 +550,7 @@ void createOutput(struct tnode* root, FILE* output){
 
     // header for the executable
     fprintf(output, "0\n2056\n0\n0\n0\n0\n0\n0\n");
-    fprintf(output, "ADD SP, 26\n");
+    fprintf(output, "ADD SP, 200\n");
     int r = codeGen(root, output);
 
     freeReg(r);
