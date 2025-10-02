@@ -26,7 +26,8 @@ numbers     [0-9]+
                 }
 "+"             {   return ADD;    }
 "-"             {   return SUB;    }
-"*"             {   return MUL;    }
+"%"             {   return MOD;    }
+"*"             {   return STAR;   }
 "/"             {   return DIV;    }
 "="             {   return ASSGN;   }
 
@@ -69,7 +70,7 @@ numbers     [0-9]+
                 }
 
 [ \t\n]         {   }
-[(){},\[\]]         {   return *yytext; }
+[(){},\[\]&]     {   return *yytext; }
 .               {   }
 
 %%

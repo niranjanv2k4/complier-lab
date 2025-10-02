@@ -1,0 +1,46 @@
+decl
+    int A[3][3], B[3][3], C[3][3];
+    int i, j, k, sum;
+enddecl
+
+begin
+    write("Enter A[]: ");
+    i = 0;
+    while(i < 3) do
+        j = 0;
+        while(j < 3) do
+            read(A[i][j]);
+            j = j + 1;
+        endwhile;
+        i = i + 1;
+    endwhile;
+
+    write("Enter B[]: ");
+    i = 0;
+    while(i < 3) do
+        j = 0;
+        while(j < 3) do
+            read(B[i][j]);
+            j = j + 1;
+        endwhile;
+        i = i + 1;
+    endwhile;
+
+    i = 0;
+    write("Res[] is : ");
+    while(i < 3) do
+        j = 0;
+        while(j < 3) do
+            sum = 0;
+            k = 0;
+            while(k < 3) do
+                sum = sum + A[i][k] * B[k][j];
+                k = k + 1;
+            endwhile;
+            C[i][j] = sum;
+            write(C[i][j]);
+            j = j + 1;
+        endwhile;
+        i = i + 1;
+    endwhile;
+end;

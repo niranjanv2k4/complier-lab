@@ -1,0 +1,28 @@
+decl
+    int a, b, c, d, result;
+    int *p, *q;
+enddecl
+
+begin
+
+    read(a);
+    read(b);
+    read(c);
+    read(d);
+
+    p = &a;
+    q = &b;
+    
+    *p = *p + *q;
+    *q = (*q) * c;
+    result = *p + *q + d;
+
+    p = &c;
+    q = &d;
+
+    *p = *p + *q;
+    *q = *q - a;
+    result = result + *p + *q;
+
+    write(result);
+end;

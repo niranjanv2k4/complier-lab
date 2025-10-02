@@ -81,29 +81,34 @@ void writeToTerminal(FILE* output, int reg){
 
 void readFromTerminal(FILE* output, struct tnode* root){
     
-    int addr = root->STentry->binding;
     int reg = getReg();
     int temp = getReg();
+
+    if(root->nodetype == NODE_DEREF){
+        fprintf(output, "MOV R%d, [%d]\n", reg, root->left->STentry->binding);
+    }else{
     
-    fprintf(output, "MOV R%d, %d\n", reg, addr);
+        int addr = root->STentry->binding;
+        fprintf(output, "MOV R%d, %d\n", reg, addr);
 
-    if(root->STentry->isArray){
-        if(root->right==NULL){
-            int colOffset = exprEvaluate(root->left, output);
-            fprintf(output, "ADD R%d, R%d\n", reg, colOffset);
-            freeReg(colOffset);
-        }else{
-            int rowOffset = exprEvaluate(root->right, output);
-            int colOffset = exprEvaluate(root->left, output);
+        if(root->STentry->isArray){
+            if(root->right==NULL){
+                int colOffset = exprEvaluate(root->left, output);
+                fprintf(output, "ADD R%d, R%d\n", reg, colOffset);
+                freeReg(colOffset);
+            }else{
+                int rowOffset = exprEvaluate(root->right, output);
+                int colOffset = exprEvaluate(root->left, output);
 
-            fprintf(output, "MOV R%d, %d\n", temp, root->STentry->colSize);
-            fprintf(output, "MUL R%d, R%d\n", temp, rowOffset);
-            fprintf(output, "ADD R%d, R%d\n", temp, colOffset);
-            fprintf(output, "ADD R%d, R%d\n", reg, temp);
+                fprintf(output, "MOV R%d, %d\n", temp, root->STentry->colSize);
+                fprintf(output, "MUL R%d, R%d\n", temp, rowOffset);
+                fprintf(output, "ADD R%d, R%d\n", temp, colOffset);
+                fprintf(output, "ADD R%d, R%d\n", reg, temp);
 
-            freeReg(colOffset);
-            freeReg(rowOffset);
-        }  
+                freeReg(colOffset);
+                freeReg(rowOffset);
+            }  
+        }
     }
 
     fprintf(output, "MOV R%d, \"Read\"\nPUSH R%d\n", temp, temp);
@@ -183,6 +188,14 @@ int exprEvaluate(struct tnode* root, FILE* output){
         }
         return reg;
     }
+    if(root->nodetype == NODE_DEREF){
+        int reg = getReg();
+
+        fprintf(output, "MOV R%d, [%d]\n", reg, root->left->STentry->binding);
+        fprintf(output, "MOV R%d, [R%d]\n", reg, reg);
+
+        return reg;
+    }
 
     int left = codeGen(root->left, output);
     int right = codeGen(root->right, output);
@@ -202,6 +215,9 @@ int exprEvaluate(struct tnode* root, FILE* output){
 
         case NODE_DIV:   
             fprintf(output, "DIV R%d, R%d\n", left, right);
+            break;
+        case NODE_MOD:   
+            fprintf(output, "MOD R%d, R%d\n", left, right);
             break;
     }
 
@@ -258,6 +274,14 @@ int boolEvaluate(struct tnode* root, FILE* output){
         }
         return reg;
     }
+    if(root->nodetype == NODE_DEREF){
+        int reg = getReg();
+
+        fprintf(output, "MOV R%d, [%d]\n", reg, root->left->STentry->binding);
+        fprintf(output, "MOV R%d, [R%d]\n", reg, reg);
+
+        return reg;
+    }
 
     int left = codeGen(root->left, output);
     int right = codeGen(root->right, output);
@@ -295,10 +319,7 @@ int boolEvaluate(struct tnode* root, FILE* output){
     return left;
 }
 
-/* codeGen for if block */
-
 void generateIfElseBlock(FILE* output, struct tnode* root){
-
     int flag = boolEvaluate(root->left, output);
     int ifEndLabel = getNewLabel();
 
@@ -438,10 +459,20 @@ int codeGen(struct tnode* root, FILE* output){
         return reg;
     }
 
+    if(root->nodetype == NODE_DEREF){
+        int reg = getReg();
+
+        fprintf(output, "MOV R%d, [%d]\n", reg, root->left->STentry->binding);
+        fprintf(output, "MOV R%d, [R%d]\n", reg, reg);
+
+        return reg;
+    }
+
     switch (root->nodetype){
         case NODE_ADD:
         case NODE_SUB:
         case NODE_MUL:
+        case NODE_MOD:
         case NODE_DIV: {
             return exprEvaluate(root, output);
         }
@@ -461,9 +492,27 @@ int codeGen(struct tnode* root, FILE* output){
         }
 
         case NODE_ASSIGN:{
+            if(root->right->nodetype == NODE_ADDR){
+                fprintf(output, "MOV [%d], %d\n", root->left->STentry->binding, root->right->left->STentry->binding);
+                return -1;
+            }
             int res = exprEvaluate(root->right, output);
-            
+
+            if(root->left->nodetype == NODE_DEREF){  
+                int temp = getReg();
+
+                fprintf(output, "MOV R%d, [%d]\n", temp, root->left->left->STentry->binding);  
+                fprintf(output, "MOV [R%d], R%d\n", temp, res);
+
+
+                freeReg(temp);
+                freeReg(res);
+                return -1;
+            }
+
+                    
             int reg = getReg();
+            
             int addr = root->left->STentry->binding;
 
             fprintf(output, "MOV R%d, %d\n", reg, addr);

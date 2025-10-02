@@ -15,6 +15,7 @@ enum NodeType {
     NODE_SUB       = 11,
     NODE_MUL       = 12,
     NODE_DIV       = 13,
+    NODE_MOD       = 14,
 
     // Logical
     NODE_IF        = 17,
@@ -32,7 +33,10 @@ enum NodeType {
     NODE_CONTINUE  = 27,
 
     NODE_RPTUTL    = 28,
-    NODE_DOWHILE   = 29
+    NODE_DOWHILE   = 29,
+
+    NODE_DEREF     = 30,
+    NODE_ADDR       = 31
 };
 
 enum DataType {
@@ -41,7 +45,9 @@ enum DataType {
     TYPE_ID_INT  = 2,
     TYPE_BOOLEAN = 3,
     TYPE_STR = 4,
-    TYPE_ID_STR = 5
+    TYPE_ID_STR = 5,
+    TYPE_INT_PTR = 6,
+    TYPE_STR_PTR = 7
 };
 
 #endif

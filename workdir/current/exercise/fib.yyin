@@ -1,0 +1,25 @@
+decl
+    int arr[10];
+    int i, n;
+enddecl
+
+begin
+    write("Enter n: ");
+    read(n);
+
+    if (n >= 1) then
+        arr[0] = 0;
+    endif;
+    if (n >= 2) then
+        arr[1] = 1;
+    endif;
+
+    i = 2;
+    while (i < n) do
+        arr[i] = arr[i-1] + arr[i-2];
+        i = i + 1;
+    endwhile;
+
+    write("Nth fib: ");
+    write(arr[n-1]);
+end;
