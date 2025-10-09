@@ -13,140 +13,182 @@
 
     FILE *output;
 
-    struct Gnode* list = NULL;
+    struct GSymbolTable* GST = NULL;
+    struct param* paramlist = NULL;
+    struct LSymbolTable* LST = NULL;
+
+
     int current_type;
 
 %}
 
 %union{
     struct tnode* node;
+    struct param* parameter;
+    struct LSymbolTable* localSymbolTable;
     int type;
 }
 
 %token ADD SUB STAR DIV MOD
 %token T_BEGIN T_END READ WRITE ASSGN EOL
 
-%token IF THEN ELSE ENDIF GE LE EQ GT LT NE WHILE DO END_WHILE BREAK CONTINUE REPEAT UNTILL DECL ENDDECL INT STR
+%token IF THEN ELSE ENDIF 
+%token GE LE EQ GT LT NE 
+%token WHILE DO END_WHILE BREAK CONTINUE REPEAT UNTILL 
+%token DECL ENDDECL 
+%token INT STR
+%token MAIN
+
+%token  RETURN
 
 %token <node> NUM ID STR_LITERAL
 
-%type <node> program Coderegion
-%type <node> IfStmt AsgnStmt OutputStmt InputStmt
+%type <node> WhileStmt DoWhileStmt RptUntlStmt IfStmt
+%type <node> Fdef 
 %type <node> Stmt Slist expr
-%type <node> WhileStmt RptUntlStmt DoWhileStmt
-%type <node> IDENTIFIERS
+%type <node> AsgnStmt OutputStmt InputStmt
+%type <node> Coderegion RtnStmt
+%type <parameter> Param ParamList
 
-%nonassoc GE LE EQ GT LT NE ASSGN
-%left ADD SUB
-%left STAR DIV MOD
+%type <localSymbolTable> IdList
+
+%right ASSGN              
+%left OR                  
+%left AND                  
+%nonassoc EQ NE GT GE LT LE
+%left ADD SUB           
+%left STAR DIV MOD  
+
+
 
 
 %%
 
-program     :   Declarations Coderegion             {   
-                                                        $$ = $2;
-                                                        createOutput($$, output);
-                                                        printST(list);
-                                                    }
-            ;
-Coderegion  :   T_BEGIN Slist T_END EOL             {   $$ = $2;    }
-            ;
-Slist       :   Slist Stmt                          {   $$ = createTreeNode(NODE_CONNECTOR, $1, $2);   }
-            |   Stmt                                {   $$ = $1; }
-            ;
-Stmt        :   InputStmt                           {   $$ = $1; }
-            |   OutputStmt                          {   $$ = $1; }
-            |   AsgnStmt                            {   $$ = $1; }
-            |   IfStmt                              {   $$ = $1; }
-            |   WhileStmt                           {   $$ = $1; }
-            |   BREAK EOL                           {   $$ = createControlFlowNode(NODE_BREAK); }
-            |   CONTINUE EOL                        {   $$ = createControlFlowNode(NODE_CONTINUE); }
-            |   RptUntlStmt                         {   $$ = $1; }
-            |   DoWhileStmt                         {   $$ = $1; }
-            ;
-InputStmt   :   READ'('IDENTIFIERS')' EOL           {   $$ = createTreeNode(NODE_READ, $3, NULL);   }
-            ;
-OutputStmt  :   WRITE'(' expr ')' EOL               {   $$ = createTreeNode(NODE_WRITE, $3, NULL);     }
-            ;
-AsgnStmt    :   IDENTIFIERS ASSGN expr EOL          {   $$ = createTreeNode(NODE_ASSIGN, $1, $3);    }
-            |   IDENTIFIERS ASSGN '&' IDENTIFIERS EOL{   
-                                                        $$ = createTreeNode(NODE_ASSIGN, $1, createAddrNode($4));
-                                                    }
+program     :   GDeclBlock FDefBlock MainBlock  {   
+                                                    printf("Success\n");
+                                                    printGST(GST);  
+                                                }
             ;
 
-IfStmt      :   IF '(' expr ')' THEN Slist ELSE Slist ENDIF EOL  {  $$ = createIfNode($3, $6, $8);  }
-            |   IF '(' expr ')' THEN Slist ENDIF EOL             {  $$ = createIfNode($3, $6, NULL); }
+GDeclBlock  :   DECL GDeclList ENDDECL          {   }
+            |   DECL ENDDECL                    {   }
+            |
             ;
-WhileStmt   :   WHILE '(' expr ')' DO Slist END_WHILE EOL        {  $$ = createLoopNode(NODE_WHILE, $3, $6);   }
+GDeclList   :   GDeclList GDecl
+            |   GDecl
+GDecl       :   Type GidList EOL                {   }
             ;
-RptUntlStmt :   REPEAT '{' Slist '}' UNTILL '(' expr ')' EOL     {  $$ = createLoopNode(NODE_RPTUTL, $7, $3);   }
+GidList     :   GidList ',' Gid
+            |   Gid
             ;
-DoWhileStmt :   DO '{' Slist '}'  WHILE '(' expr ')' EOL         {  $$ = createLoopNode(NODE_DOWHILE, $7, $3);   }
+Type        :   INT                             {   current_type = TYPE_INT;    }
+            |   STR                             {   current_type = TYPE_STR;    }
+            ;
+Gid         :   ID                              {   GST = insertToGlobal(GST, $1, current_type, 1, 1,NULL, false);    }
+            |   ID '[' NUM ']'                  {   GST = insertToGlobal(GST, $1, current_type, 1, $3->val, NULL, false); }
+            |   ID '(' ParamList ')'            {   GST = insertToGlobal(GST, $1, current_type, 1, 1, $3, true);    }
+            ;
+
+/* ------------------------------------------------------------------------------- */
+FDefBlock   :   FDefBlock Fdef                  {      }
+            |   Fdef                            {      }
+            ;
+Fdef        :   INT ID '(' ParamList ')' '{' LDeclBlock Coderegion '}'     {   }
+            |   STR ID '(' ParamList ')' '{' LDeclBlock Coderegion '}'     {   }
+            ;
+ParamList   :   ParamList ',' Param     {   $$ = appendParam($1, $3); }
+            |   Param                   {   }
+            |                           {   $$ = NULL; }
+            ;
+
+Param       :   INT ID                 {   $$ = createParam(TYPE_INT, $2);  }
+            |   STR ID                 {   $$ = createParam(TYPE_STR, $2);  }
+            ;
+
+/* --------------------------------------------------------------------------------- */
+
+MainBlock   :   INT MAIN '('')' '{' LDeclBlock Coderegion '}'           {   }
+            ;
+
+/* --------------------------------------------------------------------------------- */
+
+LDeclBlock  :   DECL LDeclList ENDDECL                                  {  }
+            |
+            |   DECL ENDDECL
+            ;
+LDeclList   :   LDeclList LDecl                                         {  }
+            |   LDecl                                                   {  }
+            ;
+LDecl       :   Type IdList  EOL                                        {  }
+            ;
+IdList      :   IdList ',' ID                                           {   }
+            |   ID                                                      {   }
+            ;   
+
+/* ---------------------------------------------------------------------------------- */
+
+Coderegion  :   T_BEGIN Slist RtnStmt T_END         {   }
+            ;
+RtnStmt     :   RETURN expr EOL                     {   }
+            ;
+Slist       :   Slist Stmt                          {   }
+            |   Stmt                                {   }
+            ;
+Stmt        :   InputStmt                           {   }
+            |   OutputStmt                          {   }
+            |   AsgnStmt                            {   }
+            |   IfStmt                              {   }
+            |   WhileStmt                           {   }
+            |   BREAK EOL                           {   }
+            |   CONTINUE EOL                        {   }
+            |   RptUntlStmt                         {   }
+            |   DoWhileStmt                         {   }
+            ;
+InputStmt   :   READ'('ID')' EOL                        {   }
+            |   READ'('ID '[' expr ']'')' EOL           {   }
+            ;
+OutputStmt  :   WRITE'(' expr ')' EOL                   {   }
+            ;
+AsgnStmt    :   ID ASSGN expr EOL                       {   }
+            |   ID '[' expr ']' ASSGN expr EOL          {   }
+            ;
+
+IfStmt      :   IF '(' expr ')' THEN Slist ELSE Slist ENDIF EOL  {  }
+            |   IF '(' expr ')' THEN Slist ENDIF EOL             {  }
+            ;
+WhileStmt   :   WHILE '(' expr ')' DO Slist END_WHILE EOL        {  }
+            ;
+RptUntlStmt :   REPEAT '{' Slist '}' UNTILL '(' expr ')' EOL     {  }
+            ;
+DoWhileStmt :   DO '{' Slist '}'  WHILE '(' expr ')' EOL         {  }
             ;
 
 
-Declarations:   DECL DeclList ENDDECL                                   {  }
-            ;
-DeclList    :   DeclList Decl                                           {  }
-            |   Decl                                                    {  }
-            ;
-Decl        :   Type Varlist  EOL                                       {  }
-            ;
-Type        :   INT                                                     {   current_type = TYPE_ID_INT;  }
-            |   STR                                                     {   current_type = TYPE_ID_STR;  }
-            ;
-Varlist     :   Varlist ',' ID                                          {   list = insert(list, $3, current_type, 1, 1, false);    }
-            |   Varlist ',' ID '[' NUM ']'                              {   list = insert(list, $3, current_type, 1, ($5)->val, true);  }
-            |   Varlist ',' ID '[' NUM ']''[' NUM ']'                   {   list = insert(list, $3, current_type, ($5)->val, ($8)->val, true);  }
-            |   ID                                                      {   list = insert(list, $1, current_type, 1, 1, false);    }
-            |   ID '[' NUM ']'                                          {   list = insert(list, $1, current_type, 1, ($3)->val, true);    }
-            |   ID '[' NUM ']''[' NUM ']'                               {   list = insert(list, $1, current_type, ($3)->val, ($6)->val, true);   }
-            |   Varlist ',' STAR ID                                  {   
-                                                                            int temp = current_type==TYPE_ID_INT?TYPE_INT_PTR:TYPE_STR_PTR;
-                                                                            list = insert(list, $4, temp, 1, 1, false);
-                                                                        }
-            |   STAR ID                                                 {   
-                                                                            int temp = current_type==TYPE_ID_INT?TYPE_INT_PTR:TYPE_STR_PTR;
-                                                                            list = insert(list, $2, temp, 1, 1, false);
-                                                                        }
-            ;
 
-expr        :   expr ADD expr                       {   $$ = createTreeNode(NODE_ADD, $1, $3); }
-            |   expr SUB expr                       {   $$ = createTreeNode(NODE_SUB, $1, $3); }
-            |   expr STAR expr                      {   $$ = createTreeNode(NODE_MUL, $1, $3); }
-            |   expr DIV expr                       {   $$ = createTreeNode(NODE_DIV, $1, $3); }
-            |   expr MOD expr                       {   $$ = createTreeNode(NODE_MOD, $1, $3); }
-            |   expr EQ expr                        {   $$ = createTreeNode(NODE_EQ, $1, $3); }
-            |   expr NE expr                        {   $$ = createTreeNode(NODE_NE, $1, $3); }
-            |   expr GT expr                        {   $$ = createTreeNode(NODE_GT, $1, $3); }
-            |   expr GE expr                        {   $$ = createTreeNode(NODE_GE, $1, $3); }
-            |   expr LT expr                        {   $$ = createTreeNode(NODE_LT, $1, $3); }
-            |   expr LE expr                        {   $$ = createTreeNode(NODE_LE, $1, $3); }
-            |   '(' expr ')'                        {   $$ = $2;    }
-            |   NUM                                 {   $$ = $1;    }
-            |   STR_LITERAL                         {   $$ = $1;    }
-            |   IDENTIFIERS                         {   $$ = $1;    }
+expr        :   expr ADD expr                       {   }
+            |   expr SUB expr                       {   }
+            |   expr STAR expr                      {   }
+            |   expr DIV expr                       {   }
+            |   expr MOD expr                       {   }
+            |   expr EQ expr                        {   }
+            |   expr NE expr                        {   }
+            |   expr GT expr                        {   }
+            |   expr GE expr                        {   }
+            |   expr LT expr                        {   }
+            |   expr LE expr                        {   }
+            |   expr OR expr                        {   }
+            |   expr AND expr                       {   }
+            |   '(' expr ')'                        {   }
+            |   NUM                                 {   }
+            |   STR_LITERAL                         {   }
+            |   ID '('')'                           {   }
+            |   ID '(' ArgList ')'                  {   }
+            |   ID                                  {   }
+            |   ID '[' expr ']'                     {   }
+                                                    
             ;
-
-IDENTIFIERS :   ID                                  {   
-                                                        setType(list, $1);
-                                                        $$ = $1; 
-                                                    }
-            |   ID '[' expr ']'                     {   
-                                                        setType(list, $1); 
-                                                        $1 = createArrayNode($1, $3, NULL);
-                                                        $$ = $1;
-                                                    }
-            |   ID '[' expr ']' '[' expr ']'        {   
-                                                        setType(list, $1); 
-                                                        $1 = createArrayNode($1, $3, $6);
-                                                        $$ = $1;
-                                                    }
-            |   STAR ID                             {   
-                                                        setType(list, $2);
-                                                        $2 = createDerefNode($2);
-                                                        $$ = $2;
-                                                    }
+ArgList     :   ArgList ',' expr
+            |   expr
             ;
         
 %%

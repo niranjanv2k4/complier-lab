@@ -6,17 +6,33 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-struct Gnode{
+struct GSymbolTable{
     char* name;
     int type;
     int size;
     int binding;
     
-    bool isArray;
     int rowSize;
     int colSize;
+
+    bool isFunct;
+    int flabel;
     
-    struct Gnode* next;
+    struct param* paramlist;
+    struct GSymbolTable* next;
+};
+
+struct param{
+    char* name;
+    int type;
+    struct param* next;
+};
+
+struct LSymbolTable{
+    char* name;
+    int type;
+    int binding;
+    struct LSymbolTable* next;
 };
 
 struct tnode{
@@ -25,7 +41,7 @@ struct tnode{
     int type;
     char *varname;
     int nodetype;
-    struct Gnode* STentry;
+    struct GSymbolTable* STentry;
     struct tnode *left;
     struct tnode *right;
 };

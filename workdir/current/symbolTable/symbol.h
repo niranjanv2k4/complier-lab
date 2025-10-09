@@ -4,14 +4,26 @@
 #include "../main.h"
 #include <string.h>
 
-extern struct Gnode* list;
+extern struct GSymbolTable* GST;
+extern struct LSymbolTable* LST;
 
-struct Gnode* lookup(struct Gnode* head, char* name);
-struct Gnode* insert(struct Gnode* head, struct tnode* id, int type, int rowSize, int colSize, bool isArray);
-void printST(struct Gnode* head);
+struct GSymbolTable* insertToGlobal(struct GSymbolTable* head, struct tnode* id, int type, int rowSize, int colSize, struct param* list, bool isFunct);
 
 
-void Assign(struct Gnode* head, struct tnode* id, struct tnode* expr);
-void setType(struct Gnode* head, struct tnode* id);
+struct GSymbolTable* GSTLookup(struct GSymbolTable* head, char* name);
+void printGST(struct GSymbolTable* head);
 
+
+void Assign(struct GSymbolTable* head, struct tnode* id, struct tnode* expr);
+void setType(struct GSymbolTable* head, struct tnode* id);
+
+
+/* parameter functions  */
+struct param* createParam(int type, struct tnode* id);
+struct param* appendParam(struct param* head, struct param* node);
+void validateFunct(struct GSymbolTable* list, int type, struct tnode* id, struct param* paramlist);
+
+
+/* Managing local variables*/
+struct LSymbolTable* createLST(struct LSymbolTable* LST, struct tnode* id, int type);
 #endif
