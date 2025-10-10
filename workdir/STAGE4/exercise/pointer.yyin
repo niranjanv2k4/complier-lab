@@ -1,0 +1,11 @@
+decl
+    int x, yx, *p, *q;
+enddecl
+
+begin
+    p = &x;
+    read(*p);
+    write(x);
+    q = p;
+    write(*q + 1);
+end;

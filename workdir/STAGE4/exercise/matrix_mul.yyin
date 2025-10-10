@@ -1,0 +1,59 @@
+decl
+    int A[5][5], B[5][5], C[5][5];
+    int r1, c1, r2, c2;
+    int i, j, k, sum;
+enddecl
+
+begin
+    write("Size of A: ");
+    read(r1);
+    read(c1);
+
+    write("Enter A[]: ");
+    i = 0;
+    while(i < r1) do
+        j = 0;
+        while(j < c1) do
+            read(A[i][j]);
+            j = j + 1;
+        endwhile;
+        i = i + 1;
+    endwhile;
+
+    write("Size of B: ");
+    read(r2);
+    read(c2);
+
+    if(c1 != c2)then
+        write("Can't multiply");
+    else
+        write("Enter B[]: ");
+        i = 0;
+        while(i < r2) do
+            j = 0;
+            while(j < c2) do
+                read(B[i][j]);
+                j = j + 1;
+            endwhile;
+            i = i + 1;
+        endwhile;
+
+        write("Result is: ");
+        i = 0;
+        while(i < r1) do
+            j = 0;
+            while(j < c2) do
+                sum = 0;
+                k = 0;
+                while(k < c1) do
+                    sum = sum + A[i][k] * B[k][j];
+                    k = k + 1;
+                endwhile;
+                C[i][j] = sum;
+                write(C[i][j]);
+                j = j + 1;
+            endwhile;
+            i = i + 1;
+        endwhile;
+    endif;
+end;
