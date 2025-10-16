@@ -2,7 +2,7 @@
     
     #include "./label.h"
 
-    int CurrAddr = 2056;
+    int CurrAddr = 2040;
     bool tableCreated = false;
 
     FILE* translated = NULL;
@@ -11,78 +11,31 @@
 
 %}
 
-label       L[0-9]+
-register    R[0-9]+
-numbers     [0-9]+
+labels   (L[0-9]+|__F[0-9]+|MAIN)
+
 
 %%
-{numbers}\n                         {   
-                                        if(tableCreated){
-                                            fprintf(translated, "%s", yytext); 
-                                        }
-                                    }
-{label}":\n"                        {   
+
+{labels}:"\n"                       {   
                                         if(!tableCreated){
-                                            char temp[11];
-                                            strncpy(temp, yytext, yyleng - 2);
-                                            temp[yyleng - 2] = '\0';
-                                            labelList = insertNewLabel(labelList, temp, CurrAddr);
-                                            //printf("%s - %d\n", temp, CurrAddr);
+                                            labelList = insertNewLabel(labelList, strndup(yytext, yyleng - 2), CurrAddr);
+                                            printf("%s - %d\n", strndup(yytext, yyleng - 2), CurrAddr);
                                         }
                                     }
+{labels}                            {
+                                        if(tableCreated)
+                                            fprintf(translated, "%d", getAddr(labelList, yytext)); 
 
-"JZ "{register}", "{label}\n        {   
-                                        if(tableCreated){
-                                            char reg[10], label[10];
-                                            sscanf(yytext, "JZ %[^,], %s", reg, label);
-                                            int labelAddr = getAddr(labelList, label);
-
-                                            if(labelAddr == -1){
-                                                printf("Label undeclared\n");
-                                                exit(1);
-                                            }
-
-                                            fprintf(translated, "JZ %s, %d\n", reg, labelAddr);
-                                        }else{
-                                            CurrAddr += 2;
-                                        }
                                     }
-"JNZ "{register}", "{label}\n       {   
-                                        if(tableCreated){
-                                            char reg[10], label[10];
-                                            sscanf(yytext, "JNZ %[^,], %s", reg, label);
-                                            int labelAddr = getAddr(labelList, label);
-
-                                            if(labelAddr == -1){
-                                                printf("Label undeclared\n");
-                                                exit(1);
-                                            }
-
-                                            fprintf(translated, "JNZ %s, %d\n", reg, labelAddr);
-                                        }else{
-                                            CurrAddr += 2;
-                                        }
-                                    }
-"JMP "{label}\n                     {   
-                                        if(tableCreated){
-                                            char reg[10], label[10];
-                                            sscanf(yytext, "JMP %s", label);
-                                            int labelAddr = getAddr(labelList, label);
-
-                                            if(labelAddr == -1){
-                                                printf("Label undeclared\n");
-                                                exit(1);
-                                            }
-
-                                            fprintf(translated, "JMP %d\n", labelAddr);
-                                        }else{
-                                            CurrAddr += 2;
-                                        }
-                                    }
-.*\n                              {   
+"\n"                                {
                                         if(!tableCreated)
-                                            CurrAddr += 2;
+                                            CurrAddr+=2;
                                         else
+                                            fprintf(translated, "\n");
+
+                                    }
+.                                   {   
+                                        if(tableCreated)
                                             fprintf(translated, "%s", yytext); 
                                     }
 

@@ -4,54 +4,57 @@
 #define STACK_BASE 4096
 
 enum NodeType {
-    NODE_LEAF      = 0,
-    NODE_READ      = 1,
-    NODE_WRITE     = 2,
-    NODE_CONNECTOR = 3,
-    NODE_ASSIGN    = 4,
+    NODE_CONST,
+    NODE_READ,
+    NODE_WRITE,
+    NODE_CONNECTOR,
+    NODE_ASSIGN,
 
     // Arithmetic
-    NODE_ADD       = 10,
-    NODE_SUB       = 11,
-    NODE_MUL       = 12,
-    NODE_DIV       = 13,
-    NODE_MOD       = 14,
+    NODE_ADD,
+    NODE_SUB,
+    NODE_MUL,
+    NODE_DIV,
+    NODE_MOD,
 
-    // Logical
-    NODE_IF        = 17,
-    NODE_WHILE     = 18,
-    NODE_IFELSE    = 19,
-    NODE_LT        = 20,
-    NODE_GT        = 21,
-    NODE_LE        = 22,
-    NODE_GE        = 23,
-    NODE_EQ        = 24,
-    NODE_NE        = 25,
+    // Logical / Conditional
+    NODE_IF,
+    NODE_WHILE,
+    NODE_LT,
+    NODE_GT,
+    NODE_LE,
+    NODE_GE,
+    NODE_EQ,
+    NODE_NE,
 
     // Control flow
-    NODE_BREAK     = 26,
-    NODE_CONTINUE  = 27,
+    NODE_BREAK,
+    NODE_CONTINUE,
+    NODE_RPTUTL,
+    NODE_DOWHILE,
 
-    NODE_RPTUTL    = 28,
-    NODE_DOWHILE   = 29,
+    NODE_DEREF,
+    NODE_ADDR,
+    NODE_AND,
+    NODE_OR,
 
-    NODE_DEREF     = 30,
-    NODE_ADDR       = 31,
-
-    NODE_AND        = 32,
-    NODE_OR         = 33
+    NODE_FUNCT,
+    NODE_ID,
+    NODE_RET,
+    NODE_PTR
 };
 
-enum DataType {
-    NO_TYPE = 0,
-    TYPE_INT = 1,
-    TYPE_ID_INT  = 2,
-    TYPE_BOOLEAN = 3,
-    TYPE_STR = 4,
-    TYPE_ID_STR = 5,
-    TYPE_INT_PTR = 6,
-    TYPE_STR_PTR = 7,
-    TYPE_FUNCT = 8
-};
+
+// enum DataType {
+//     NO_TYPE = 0,
+//     TYPE_INT = 1,
+//     TYPE_ID_INT  = 2,
+//     TYPE_BOOLEAN = 3,
+//     TYPE_STR = 4,
+//     TYPE_ID_STR = 5,
+//     TYPE_INT_PTR = 6,
+//     TYPE_STR_PTR = 7,
+//     TYPE_FUNCT = 8
+// };
 
 #endif

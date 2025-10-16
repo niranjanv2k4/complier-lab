@@ -1,9 +1,9 @@
 #include "./label.h"
 
-struct LabelList* insertNewLabel(struct LabelList* head, char LabelName[], int addr){
+struct LabelList* insertNewLabel(struct LabelList* head, char* LabelName, int addr){
     struct LabelList* node = malloc(sizeof(struct LabelList));
 
-    strcpy(node->LabelName, LabelName);
+    node->LabelName = LabelName;
     node->addr = addr;
     node->next = NULL;
 
@@ -20,7 +20,7 @@ struct LabelList* insertNewLabel(struct LabelList* head, char LabelName[], int a
     return head;
 }
 
-int getAddr(struct LabelList* head, char LabelName[]){
+int getAddr(struct LabelList* head, char* LabelName){
 
     struct LabelList* temp = head;
     while(temp){

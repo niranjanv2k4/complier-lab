@@ -3,9 +3,10 @@
 
 #include "../main.h"
 #include "../TreeGen/tree.h"
+#include "../typeTable/type.h"
 
-struct tnode* createIfNode(struct tnode* CondNode, struct tnode* ifNode, struct tnode* elseNode);
-struct tnode* createControlFlowNode(int nodetype);
-struct tnode* createLoopNode(int nodetype, struct tnode* CondNode, struct tnode* stmt);
+struct ASTNode* createIfNode(struct ASTNode* CondNode, struct ASTNode* ifNode, struct ASTNode* elseNode);
+struct ASTNode* createControlFlowNode(int nodetype);
+struct ASTNode* createLoopNode(int nodetype, struct ASTNode* CondNode, struct ASTNode* stmt);
 
 #endif

@@ -6,6 +6,7 @@
     #include "./ExecGen/exec.h"
     #include "./TreeGen/tree.h"
     #include "./symbolTable/symbol.h"
+    #include "./typeTable/type.h"
 
     #include "y.tab.h"
 
@@ -19,10 +20,11 @@ letter     [a-zA-Z]
 
 %%
 
-{digit}+       {   yylval.node = createLeafNode(TYPE_INT, NULL, atoi(yytext), NULL);
+{digit}+        {   
+                    yylval.node = createLeafNode(TLookup("int"), NULL, atoi(yytext), NULL);
                     return NUM; 
                 }
-\"[^\"]*\"      {   yylval.node = createLeafNode(TYPE_STR, NULL, 0, strdup(yytext));
+\"[^\"]*\"      {   yylval.node = createLeafNode(TLookup("str"), NULL, 0, strdup(yytext));
                     return STR_LITERAL;
                 }
 "+"             {   return ADD;    }
@@ -71,7 +73,7 @@ letter     [a-zA-Z]
 "main"          {   return MAIN;    }
 "return"        {   return RETURN;  }
 
-{letter}({letter}|{digit})*          {   yylval.node = createLeafNode(NO_TYPE, strdup(yytext), 0, NULL); 
+{letter}({letter}|{digit})*          {   yylval.node = createLeafNode(NULL, strdup(yytext), 0, NULL); 
                     return ID;  
                 }
 

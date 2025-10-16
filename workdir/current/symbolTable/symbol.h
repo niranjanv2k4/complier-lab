@@ -2,28 +2,34 @@
 #define SYMBOL_H
 
 #include "../main.h"
-#include <string.h>
+#include "../constant.h"
+#include "../typeTable/type.h"
 
-extern struct GSymbolTable* GST;
-extern struct LSymbolTable* LST;
+extern struct GSymbol* GST;
+extern struct LSymbol* LST;
+extern int currBinding;
 
-struct GSymbolTable* insertToGlobal(struct GSymbolTable* head, struct tnode* id, int type, int rowSize, int colSize, struct param* list, bool isFunct);
+struct GSymbol* insertToGlobal(struct ASTNode* id, struct Typetable* type, int rowSize, int colSize, struct param* list, int nodetype);
+struct GSymbol* GSTLookup(char* name);
+void printGST();
 
 
-struct GSymbolTable* GSTLookup(struct GSymbolTable* head, char* name);
-void printGST(struct GSymbolTable* head);
-
-
-void Assign(struct GSymbolTable* head, struct tnode* id, struct tnode* expr);
-void setType(struct GSymbolTable* head, struct tnode* id);
+void setType(struct ASTNode* id);
+void setGType(struct ASTNode* id);
 
 
 /* parameter functions  */
-struct param* createParam(int type, struct tnode* id);
+struct param* createParam(struct Typetable* type, struct ASTNode* id);
 struct param* appendParam(struct param* head, struct param* node);
-void validateFunct(struct GSymbolTable* list, int type, struct tnode* id, struct param* paramlist);
-
+void validateFunct(struct Typetable* type, struct ASTNode* id, struct param* paramlist, struct ASTNode* return_val);
+struct LSymbol* addParamtoLST(struct param* list);
 
 /* Managing local variables*/
-struct LSymbolTable* createLST(struct LSymbolTable* LST, struct tnode* id, int type);
+struct LSymbol* createLST(struct ASTNode* id, struct Typetable* type);
+struct LSymbol* LSTLookup(char* name);
+void printLST();
+
+
+void validateMain(struct ASTNode* node);
+
 #endif

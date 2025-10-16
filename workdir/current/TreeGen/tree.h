@@ -2,13 +2,22 @@
 #define TREE_H
 
 #include "../main.h"
+#include "../constant.h"
+#include "../typeTable/type.h"
 
-struct tnode* createLeafNode(int type, char* varname, int val, char* str_val);
-struct tnode* createTreeNode(int nodetype, struct tnode* left, struct tnode* right);
+struct ASTNode* createLeafNode(struct Typetable* type, char* varname, int val, char* str_val);
+struct ASTNode* createTreeNode(int nodetype, struct ASTNode* left, struct ASTNode* right);
 
-struct tnode* createArrayNode(struct tnode* id, struct tnode* row, struct tnode* col);
+struct ASTNode* createArrayNode(struct ASTNode* id, struct ASTNode* row, struct ASTNode* col);
 
-struct tnode* createDerefNode(struct tnode* id);
-struct tnode* createAddrNode(struct tnode* id);
-void isValid(struct tnode* id, int index);
+struct ASTNode* createDerefNode(struct ASTNode* id);
+struct ASTNode* createAddrNode(struct ASTNode* id);
+// void isValid(struct ASTNode* id, int index);
+
+/*---arguments list functions---*/
+
+struct ASTNode* appendArgNode(struct ASTNode* list, struct ASTNode* expr);
+struct ASTNode* createFunctNode(struct ASTNode* id, struct ASTNode* args);
+struct ASTNode* createRtnNode(struct ASTNode* rtn);
+
 #endif

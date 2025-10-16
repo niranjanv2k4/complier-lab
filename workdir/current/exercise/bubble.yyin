@@ -1,33 +1,75 @@
 decl
-    int arr[10];
-    int i, j, temp;
+    int a[10];
+    int n;
+    int globalSum;
+int bubbleSort(int size);
+    int sumArray(int size);
 enddecl
 
+int sumArray(int size){
+    decl
+        int i, sum;
+    enddecl
 begin
+    sum = 0;
     i = 0;
-    write("Enter array : ");
-    while (i < 10) do
-        read(arr[i]);
+    while (i < size) do
+        sum = sum + a[i];
         i = i + 1;
     endwhile;
+    return sum;
+end
+}
 
+int bubbleSort(int size){
+    decl
+        int i, j, temp;
+    enddecl
+begin
     i = 0;
-    while (i < 10) do
+    while (i < size) do
         j = 0;
-        while (j < (10 - i - 1)) do
-            if (arr[j] > arr[j+1]) then
-                temp = arr[j];
-                arr[j] = arr[j+1];
-                arr[j+1] = temp;
+        while (j < (size - i - 1)) do
+            if (a[j] > a[j+1]) then
+                temp = a[j];
+                a[j] = a[j+1];
+                a[j+1] = temp;
             endif;
             j = j + 1;
         endwhile;
         i = i + 1;
     endwhile;
-    write("Sorted :");
+    return temp;
+end
+}
+
+int main(){
+    decl
+        int i;
+    enddecl
+begin
+    write("Enter number of elements : ");
+    read(n);
+
+    write("Enter array elements : ");
     i = 0;
-    while (i < 10) do
-        write(arr[i]);
+    while (i < n) do
+        read(a[i]);
         i = i + 1;
     endwhile;
-end;
+
+
+    write("Sorted array : ");
+    i = 0;
+    while (i < n) do
+        write(a[i]);
+        i = i + 1;
+    endwhile;
+
+    globalSum = sumArray(n);
+    write("Sum of array : ");
+    write(globalSum);
+
+    return 0;
+end
+}

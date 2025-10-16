@@ -1,52 +1,53 @@
 #include "jump.h"
 
-struct tnode* createIfNode(struct tnode* CondNode, struct tnode* ifNode, struct tnode* elseNode){
-    if(CondNode->type!=TYPE_BOOLEAN){
+struct ASTNode* createIfNode(struct ASTNode* CondNode, struct ASTNode* ifNode, struct ASTNode* elseNode){
+    if(CondNode->type!=TLookup("bool")){
         printf("Type mismatch!\n");
         exit(1);
     }
 
-    struct tnode* node = malloc(sizeof(struct tnode));
+    struct ASTNode* node = malloc(sizeof(struct ASTNode));
 
-    node->val = 0;
-    node->varname = NULL;
-    node->STentry = NULL;
-    node->str_val = NULL;
-    node->type = NO_TYPE;
+    node->Gentry = NULL;
+    node->Lentry = NULL;
 
-    node->nodetype = elseNode?NODE_IFELSE:NODE_IF;
-    node->left = CondNode;
-    node->right = createTreeNode(NODE_CONNECTOR, ifNode, elseNode);
+    node->type = TLookup("void");
+
+    node->nodetype = NODE_IF;
+
+    node->ptr1 = CondNode;
+    node->ptr2 = ifNode;
+    node->ptr3 = elseNode;
 
     return node;
 }
 
-struct tnode* createLoopNode(int nodetype, struct tnode* CondNode, struct tnode* Slist){
-    if(CondNode->type!=TYPE_BOOLEAN){
+struct ASTNode* createLoopNode(int nodetype, struct ASTNode* CondNode, struct ASTNode* Slist){
+    if(CondNode->type!=TLookup("bool")){
         printf("Type mismatch!\n");
         exit(1);
     }
 
-    struct tnode* node = malloc(sizeof(struct tnode));
+    struct ASTNode* node = malloc(sizeof(struct ASTNode));
 
-    node->val = 0;
-    node->varname = NULL;
-    node->STentry = NULL;
-    node->str_val = NULL;
-    node->type = NO_TYPE;
+    node->Gentry = NULL;
+    node->Lentry = NULL;
+
+    node->type = TLookup("void");
 
     node->nodetype = nodetype;
-    node->left = CondNode;
-    node->right = Slist;
+
+    node->ptr1 = CondNode;
+    node->ptr2 = Slist;
 
     return node;
 }
 
-struct tnode* createControlFlowNode(int nodetype){
-    struct tnode* node = malloc(sizeof(struct tnode));
+struct ASTNode* createControlFlowNode(int nodetype){
+    struct ASTNode* node = malloc(sizeof(struct ASTNode));
 
     node->nodetype = nodetype;
-    node->type = NO_TYPE;
+    node->type = TLookup("void");
 
     return node;
 }

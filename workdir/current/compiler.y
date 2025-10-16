@@ -6,6 +6,7 @@
     #include "./ExecGen/exec.h"
     #include "./TreeGen/tree.h"
     #include "./symbolTable/symbol.h"
+    #include "./typeTable/type.h"
 
     int yyerror();
     int yylex();
@@ -13,19 +14,21 @@
 
     FILE *output;
 
-    struct GSymbolTable* GST = NULL;
+    struct GSymbol* GST = NULL;
     struct param* paramlist = NULL;
-    struct LSymbolTable* LST = NULL;
+    struct LSymbol* LST = NULL;
 
+    struct Typetable* current_type;
 
-    int current_type;
+    bool isFirst = true;
 
 %}
 
 %union{
-    struct tnode* node;
+    struct ASTNode* node;
     struct param* parameter;
-    struct LSymbolTable* localSymbolTable;
+    struct LSymbol* localSymbolTable;
+    struct Arglist* Args;
     int type;
 }
 
@@ -48,7 +51,10 @@
 %type <node> Stmt Slist expr
 %type <node> AsgnStmt OutputStmt InputStmt
 %type <node> Coderegion RtnStmt
+%type <node> IDENTIFIERS
 %type <parameter> Param ParamList
+
+%type <node> ArgList;
 
 %type <localSymbolTable> IdList
 
@@ -66,13 +72,28 @@
 
 program     :   GDeclBlock FDefBlock MainBlock  {   
                                                     printf("Success\n");
-                                                    printGST(GST);  
+                                                    exitProg(output);
+                                                    printGST();  
+                                                }
+            |   FDefBlock MainBlock             {   
+                                                    printf("Success\n");
+                                                    exitProg(output);
+                                                    printGST();  
+                                                }
+            |   GDeclBlock MainBlock            {   
+                                                    printf("Success\n");
+                                                    exitProg(output);
+                                                    printGST();  
+                                                }
+            |   MainBlock                       {
+                                                    printf("Success\n");
+                                                    exitProg(output);
+                                                    printGST();  
                                                 }
             ;
 
-GDeclBlock  :   DECL GDeclList ENDDECL          {   }
+GDeclBlock  :   DECL GDeclList ENDDECL          {   setHeader(output);  }
             |   DECL ENDDECL                    {   }
-            |
             ;
 GDeclList   :   GDeclList GDecl
             |   GDecl
@@ -81,114 +102,147 @@ GDecl       :   Type GidList EOL                {   }
 GidList     :   GidList ',' Gid
             |   Gid
             ;
-Type        :   INT                             {   current_type = TYPE_INT;    }
-            |   STR                             {   current_type = TYPE_STR;    }
+Type        :   INT                             {   current_type = TLookup("int");    }
+            |   STR                             {   current_type = TLookup("str");    }
             ;
-Gid         :   ID                              {   GST = insertToGlobal(GST, $1, current_type, 1, 1,NULL, false);    }
-            |   ID '[' NUM ']'                  {   GST = insertToGlobal(GST, $1, current_type, 1, $3->val, NULL, false); }
-            |   ID '(' ParamList ')'            {   GST = insertToGlobal(GST, $1, current_type, 1, 1, $3, true);    }
+Gid         :   ID                              {   GST = insertToGlobal($1, current_type, 1, 1,NULL, NODE_ID);    }
+            |   ID '[' NUM ']'                  {   GST = insertToGlobal($1, current_type, 1, $3->value.intVal, NULL, NODE_ID); }
+            |   ID '(' ParamList ')'            {   GST = insertToGlobal($1, current_type, 1, 1, $3, NODE_FUNCT);LST = NULL;    }
             ;
 
 /* ------------------------------------------------------------------------------- */
 FDefBlock   :   FDefBlock Fdef                  {      }
             |   Fdef                            {      }
             ;
-Fdef        :   INT ID '(' ParamList ')' '{' LDeclBlock Coderegion '}'     {   }
-            |   STR ID '(' ParamList ')' '{' LDeclBlock Coderegion '}'     {   }
+Fdef        :   INT ID '(' ParamList ')' '{' LDeclBlock Coderegion '}'      {   
+                                                                                validateFunct(TLookup("int"), $2, $4, $8); 
+                                                                                printf("FUNCTION - %s\n", $2->name);
+                                                                                printLST(LST);
+                                                                                generateFunct(output, $2, $8);
+                                                                                LST = NULL;
+                                                                            }
+            |   STR ID '(' ParamList ')' '{' LDeclBlock Coderegion '}'      {   
+                                                                                validateFunct(TLookup("str"), $2, $4, $8);    
+                                                                                printf("FUNCTION - %s\n", $2->name);
+                                                                                generateFunct(output, $2, $8);
+                                                                                printLST(LST);
+                                                                                LST = NULL;
+                                                                            }
             ;
 ParamList   :   ParamList ',' Param     {   $$ = appendParam($1, $3); }
-            |   Param                   {   }
+            |   Param                   {   $$ = $1; }
             |                           {   $$ = NULL; }
             ;
 
-Param       :   INT ID                 {   $$ = createParam(TYPE_INT, $2);  }
-            |   STR ID                 {   $$ = createParam(TYPE_STR, $2);  }
+Param       :   INT ID                 {   
+                                            $$ = createParam(TLookup("int"), $2);  
+                                            LST = addParamtoLST($$);
+                                        }
+            |   STR ID                  {
+                                            $$ = createParam(TLookup("str"), $2);  
+                                            LST = addParamtoLST($$);
+                                        }
             ;
 
 /* --------------------------------------------------------------------------------- */
 
-MainBlock   :   INT MAIN '('')' '{' LDeclBlock Coderegion '}'           {   }
+MainBlock   :   INT MAIN '('')' '{' LDeclBlock Coderegion '}'   {   
+                                                                    validateMain($7);
+                                                                    printf("FUNCTION - MAIN\n");
+                                                                    generateFunct(output, NULL, $7);
+                                                                    printLST(LST);
+                                                                    LST = NULL;
+                                                                   }
             ;
 
 /* --------------------------------------------------------------------------------- */
 
-LDeclBlock  :   DECL LDeclList ENDDECL                                  {  }
+LDeclBlock  :   DECL LDeclList ENDDECL                          {  }
             |
             |   DECL ENDDECL
             ;
-LDeclList   :   LDeclList LDecl                                         {  }
-            |   LDecl                                                   {  }
+LDeclList   :   LDeclList LDecl                                 {  }
+            |   LDecl                                           {  }
             ;
-LDecl       :   Type IdList  EOL                                        {  }
+LDecl       :   Type IdList  EOL                                {  }
             ;
-IdList      :   IdList ',' ID                                           {   }
-            |   ID                                                      {   }
+IdList      :   IdList ',' ID                                   {   LST = createLST($3, current_type);   }
+            |   ID                                              {   LST = createLST($1, current_type);   }
             ;   
 
 /* ---------------------------------------------------------------------------------- */
 
-Coderegion  :   T_BEGIN Slist RtnStmt T_END         {   }
+Coderegion  :   T_BEGIN Slist RtnStmt T_END         {   $$ = createTreeNode(NODE_CONNECTOR, $2, $3);    }
             ;
-RtnStmt     :   RETURN expr EOL                     {   }
+RtnStmt     :   RETURN expr EOL                     {   
+                                                        $$ = createRtnNode($2);
+                                                    }
             ;
-Slist       :   Slist Stmt                          {   }
-            |   Stmt                                {   }
+Slist       :   Slist Stmt                          {   $$ = createTreeNode(NODE_CONNECTOR, $1, $2);   }
+            |   Stmt                                {   $$ = $1; }
             ;
-Stmt        :   InputStmt                           {   }
-            |   OutputStmt                          {   }
-            |   AsgnStmt                            {   }
-            |   IfStmt                              {   }
-            |   WhileStmt                           {   }
-            |   BREAK EOL                           {   }
-            |   CONTINUE EOL                        {   }
-            |   RptUntlStmt                         {   }
-            |   DoWhileStmt                         {   }
+Stmt        :   InputStmt                           {   $$ = $1; }
+            |   OutputStmt                          {   $$ = $1; }
+            |   AsgnStmt                            {   $$ = $1; }
+            |   IfStmt                              {   $$ = $1; }
+            |   WhileStmt                           {   $$ = $1; }
+            |   BREAK EOL                           {   $$ = createControlFlowNode(NODE_BREAK); }
+            |   CONTINUE EOL                        {   $$ = createControlFlowNode(NODE_CONTINUE); }
+            |   RptUntlStmt                         {   $$ = $1; }
+            |   DoWhileStmt                         {   $$ = $1; }
             ;
-InputStmt   :   READ'('ID')' EOL                        {   }
-            |   READ'('ID '[' expr ']'')' EOL           {   }
+InputStmt   :   READ'('IDENTIFIERS')' EOL               {   $$ = createTreeNode(NODE_READ, $3, NULL);   }
             ;
-OutputStmt  :   WRITE'(' expr ')' EOL                   {   }
+OutputStmt  :   WRITE'(' expr ')' EOL                   {   $$ = createTreeNode(NODE_WRITE, $3, NULL);     }
             ;
-AsgnStmt    :   ID ASSGN expr EOL                       {   }
-            |   ID '[' expr ']' ASSGN expr EOL          {   }
-            ;
-
-IfStmt      :   IF '(' expr ')' THEN Slist ELSE Slist ENDIF EOL  {  }
-            |   IF '(' expr ')' THEN Slist ENDIF EOL             {  }
-            ;
-WhileStmt   :   WHILE '(' expr ')' DO Slist END_WHILE EOL        {  }
-            ;
-RptUntlStmt :   REPEAT '{' Slist '}' UNTILL '(' expr ')' EOL     {  }
-            ;
-DoWhileStmt :   DO '{' Slist '}'  WHILE '(' expr ')' EOL         {  }
+AsgnStmt    :   IDENTIFIERS ASSGN expr EOL              {   $$ = createTreeNode(NODE_ASSIGN, $1, $3);    }
             ;
 
-
-
-expr        :   expr ADD expr                       {   }
-            |   expr SUB expr                       {   }
-            |   expr STAR expr                      {   }
-            |   expr DIV expr                       {   }
-            |   expr MOD expr                       {   }
-            |   expr EQ expr                        {   }
-            |   expr NE expr                        {   }
-            |   expr GT expr                        {   }
-            |   expr GE expr                        {   }
-            |   expr LT expr                        {   }
-            |   expr LE expr                        {   }
-            |   expr OR expr                        {   }
-            |   expr AND expr                       {   }
-            |   '(' expr ')'                        {   }
-            |   NUM                                 {   }
-            |   STR_LITERAL                         {   }
-            |   ID '('')'                           {   }
-            |   ID '(' ArgList ')'                  {   }
-            |   ID                                  {   }
-            |   ID '[' expr ']'                     {   }
-                                                    
+IfStmt      :   IF '(' expr ')' THEN Slist ELSE Slist ENDIF EOL  {  $$ = createIfNode($3, $6, $8);  }
+            |   IF '(' expr ')' THEN Slist ENDIF EOL             {  $$ = createIfNode($3, $6, NULL); }
             ;
-ArgList     :   ArgList ',' expr
-            |   expr
+WhileStmt   :   WHILE '(' expr ')' DO Slist END_WHILE EOL        {  $$ = createLoopNode(NODE_WHILE, $3, $6);   }
+            ;
+RptUntlStmt :   REPEAT '{' Slist '}' UNTILL '(' expr ')' EOL     {  $$ = createLoopNode(NODE_RPTUTL, $7, $3);   }
+            ;
+DoWhileStmt :   DO '{' Slist '}'  WHILE '(' expr ')' EOL         {  $$ = createLoopNode(NODE_DOWHILE, $7, $3);   }
+            ;
+
+expr        :   expr ADD expr                       {   $$ = createTreeNode(NODE_ADD, $1, $3); }
+            |   expr SUB expr                       {   $$ = createTreeNode(NODE_SUB, $1, $3); }
+            |   expr STAR expr                      {   $$ = createTreeNode(NODE_MUL, $1, $3); }
+            |   expr DIV expr                       {   $$ = createTreeNode(NODE_DIV, $1, $3); }
+            |   expr MOD expr                       {   $$ = createTreeNode(NODE_MOD, $1, $3); }
+            |   expr EQ expr                        {   $$ = createTreeNode(NODE_EQ, $1, $3); }
+            |   expr NE expr                        {   $$ = createTreeNode(NODE_NE, $1, $3); }
+            |   expr GT expr                        {   $$ = createTreeNode(NODE_GT, $1, $3); }
+            |   expr GE expr                        {   $$ = createTreeNode(NODE_GE, $1, $3); }
+            |   expr LT expr                        {   $$ = createTreeNode(NODE_LT, $1, $3); }
+            |   expr LE expr                        {   $$ = createTreeNode(NODE_LE, $1, $3); }
+            |   expr OR expr                        {   $$ = createTreeNode(NODE_OR, $1, $3); }
+            |   expr AND expr                       {   $$ = createTreeNode(NODE_AND, $1, $3); }
+            |   '(' expr ')'                        {   $$ = $2;    }
+            |   NUM                                 {   $$ = $1;    }
+            |   STR_LITERAL                         {   $$ = $1;    }
+            |   ID '(' ArgList ')'                  {   
+                                                        setType($1);
+                                                        $$ = createFunctNode($1, $3); 
+                                                    }
+            |   IDENTIFIERS                         {   $$ = $1;    }
+            ;
+
+IDENTIFIERS :   ID                                  {   
+                                                        setType($1);
+                                                        $$ = $1;    
+                                                    }
+            |   ID '[' expr ']'                     {   
+                                                        setType($1);
+                                                        $$ = createArrayNode($1, NULL, $3); 
+                                                    }
+            ;
+ArgList     :   ArgList ',' expr                    {   $$ = appendArgNode($1, $3); }
+            |   expr                                {   $$ = $1; }
+            |                                       {   $$ = NULL; }
             ;
         
 %%
@@ -209,7 +263,7 @@ int main(int argc, char **argv){
             return 1;
         }
     }
-
+    TypeTableCreate();
     output = fopen("output.xsm", "w");
     yyparse();
 

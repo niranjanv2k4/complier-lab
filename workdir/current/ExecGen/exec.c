@@ -1,15 +1,18 @@
 #include "exec.h"
 
 void writeToTerminal(FILE* output, int r);
-void readFromTerminal(FILE* output, struct tnode* root);
-int exprEvaluate(struct tnode* root, FILE* output);
-int boolEvaluate(struct tnode* root, FILE* output);
+void readFromTerminal(FILE* output, struct ASTNode* root);
+int evaluate(struct ASTNode* root, FILE* output);
+int codeGen(struct ASTNode* root, FILE* output);
+
 
 /**/
 
 static uint32_t used = 0;
 int newLabel = 0;
+int regNum = 0;
 
+bool isMain = false;
 
 /* array for keeping track of current  loop labels */
 static struct LoopLabels loopStack[MAX_LOOP_NESTING];
@@ -38,6 +41,8 @@ int getReg(){
             return i;
         }
     }
+    printf("Out of regusters\n");
+    exit(1);
     return -1;
 }
 
@@ -46,6 +51,8 @@ int freeReg(int reg){
         used &= ~(1u <<reg);
         return 0;
     }
+    printf("No registers to free - %d\n", reg);
+    exit(1);
     return -1;
 }
 
@@ -54,14 +61,47 @@ int getNewLabel(){
 }
 
 
-/* -----I/O managing----- */
+int getAddr(FILE* output, struct ASTNode* node){
+
+    int reg = getReg();
+
+    if(node->Lentry){
+
+        fprintf(output, "MOV R%d, BP\n", reg);
+        fprintf(output, "ADD R%d, %d\n", reg, node->Lentry->binding);
+
+    }else{
+
+        fprintf(output, "MOV R%d, %d\n", reg, node->Gentry->binding);
+
+        if(node->Gentry->size != 1){
+
+            if(node->ptr1){
+                int rowOffset = codeGen(node->ptr1, output);
+                int colOffset = codeGen(node->ptr2, output);
+
+                fprintf(output, "MUL R%d, %d\n", rowOffset, node->Gentry->rowSize);
+                fprintf(output, "ADD R%d, R%d\n", rowOffset, colOffset);
+                fprintf(output, "ADD R%d, R%d\n", reg, rowOffset);
+
+                freeReg(rowOffset);
+                freeReg(colOffset);
+            }else{
+                int colOffset = codeGen(node->ptr2, output);
+                
+                fprintf(output, "ADD R%d, R%d\n", reg, colOffset);
+
+                freeReg(colOffset);
+            }
+        }
+    }
+
+    return reg;
+}
+
 void writeToTerminal(FILE* output, int reg){
 
     int temp = getReg();
-    if(temp==-1){
-        printf("Out of registers\n");
-        exit(1);
-    }
 
     fprintf(output, "MOV R%d, \"Write\"\nPUSH R%d\n", temp, temp);
     fprintf(output, "MOV R%d, -2\nPUSH R%d\n", temp, temp);
@@ -71,45 +111,16 @@ void writeToTerminal(FILE* output, int reg){
 
     fprintf(output, "CALL 0\n");
 
-    fprintf(output, "POP R0\n");
-
-    fprintf(output, "POP R0\nPOP R0\nPOP R0\nPOP R0\n");
+    fprintf(output, "POP R%d\nPOP R%d\nPOP R%d\nPOP R%d\nPOP R%d\n", temp, temp, temp, temp, temp);
 
     freeReg(temp);
 
 }
 
-void readFromTerminal(FILE* output, struct tnode* root){
+void readFromTerminal(FILE* output, struct ASTNode* root){
     
-    int reg = getReg();
+    int reg = getAddr(output, root);
     int temp = getReg();
-
-    if(root->nodetype == NODE_DEREF){
-        fprintf(output, "MOV R%d, [%d]\n", reg, root->left->STentry->binding);
-    }else{
-    
-        int addr = root->STentry->binding;
-        fprintf(output, "MOV R%d, %d\n", reg, addr);
-
-        if(root->STentry->isArray){
-            if(root->right==NULL){
-                int colOffset = exprEvaluate(root->left, output);
-                fprintf(output, "ADD R%d, R%d\n", reg, colOffset);
-                freeReg(colOffset);
-            }else{
-                int rowOffset = exprEvaluate(root->right, output);
-                int colOffset = exprEvaluate(root->left, output);
-
-                fprintf(output, "MOV R%d, %d\n", temp, root->STentry->colSize);
-                fprintf(output, "MUL R%d, R%d\n", temp, rowOffset);
-                fprintf(output, "ADD R%d, R%d\n", temp, colOffset);
-                fprintf(output, "ADD R%d, R%d\n", reg, temp);
-
-                freeReg(colOffset);
-                freeReg(rowOffset);
-            }  
-        }
-    }
 
     fprintf(output, "MOV R%d, \"Read\"\nPUSH R%d\n", temp, temp);
     fprintf(output, "MOV R%d, -1\nPUSH R%d\n", temp, temp);
@@ -118,87 +129,130 @@ void readFromTerminal(FILE* output, struct tnode* root){
 
     fprintf(output, "CALL 0\n");
     
-    fprintf(output, "POP R0\nPOP R0\nPOP R0\nPOP R0\nPOP R0\n");
+    fprintf(output, "POP R%d\nPOP R%d\nPOP R%d\nPOP R%d\nPOP R%d\n", temp , temp , temp , temp , temp);
 
     freeReg(reg);
     freeReg(temp);
 }
 
 void exitProg(FILE* output){
-    int r1 = getReg();
-
-    fprintf(output, "MOV R%d, \"Exit\"\nPUSH R%d\n", r1, r1);
-    fprintf(output, "PUSH R%d\nPUSH R%d\nPUSH R%d\nPUSH R%d\n", r1, r1, r1, r1);
+    fprintf(output, "MOV R0, \"Exit\"\nPUSH R0\n");
+    fprintf(output, "PUSH R0\nPUSH R0\nPUSH R0\nPUSH R0\n");
     fprintf(output, "CALL 0\n");
-
-    freeReg(r1);
+    fprintf(output, "POP R0\nPOP R0\nPOP R0\nPOP R0\nPOP R0\n");
 }
 
-
-/* -----output generation----- */
-int codeGen(struct tnode* root, FILE* output);
-
-int exprEvaluate(struct tnode* root, FILE* output){
-    if(root==NULL)return -1;
-    if(root->nodetype==NODE_LEAF){
-        int reg = getReg();
-
-        if(reg==-1){
-            printf("Out of registers\n");
-            exit(1);
-        }
-        switch(root->type){
-            case TYPE_INT: 
-                fprintf(output, "MOV R%d, %d\n", reg, root->val);
-                break;
-            case TYPE_STR: 
-                fprintf(output, "MOV R%d, %s\n", reg, root->str_val);
-                break;
-            case TYPE_ID_INT:
-            case TYPE_ID_STR: {
-                
-                int addr = root->STentry->binding;
-                fprintf(output, "MOV R%d, %d\n", reg, addr);
-                
-                if(root->STentry->isArray){
-                    if(root->right==NULL){
-                        int colOffset = exprEvaluate(root->left, output);
-                        fprintf(output,"ADD R%d, R%d\n", reg, colOffset);
-                        freeReg(colOffset);
-                    }
-                    else{
-                        int rowOffset = exprEvaluate(root->right, output);
-                        int colOffset = exprEvaluate(root->left, output);
-
-                        int temp = getReg();
-
-                        fprintf(output, "MOV R%d, %d\n", temp, root->STentry->colSize);
-                        fprintf(output, "MUL R%d, R%d\n", temp, rowOffset);
-                        fprintf(output, "ADD R%d, R%d\n", temp, colOffset);
-                        fprintf(output, "ADD R%d, R%d\n", reg, temp);
-
-                        freeReg(temp);
-                        freeReg(rowOffset);
-                        freeReg(colOffset);
-                    }
-                }
-                
-                fprintf(output, "MOV R%d, [R%d]\n", reg, reg);
+int evaluate(struct ASTNode* root, FILE* output){
+    switch(root->nodetype){
+        case NODE_CONST:{
+            int reg = getReg();
+            if(TLookup("int") == root->type){
+                fprintf(output, "MOV R%d, %d\n", reg, root->value.intVal);
+            }else{
+                fprintf(output, "MOV R%d, %s\n", reg, root->value.strVal);
             }
+            return reg;
         }
-        return reg;
+        case NODE_ID:{
+
+            int reg = getAddr(output, root);
+            fprintf(output, "MOV R%d, [R%d]\n", reg, reg);
+            return reg;
+        
+        }
+        case NODE_FUNCT:{
+
+            /* storing the used registers */
+            for(int i = 0; i<20; i++){
+                if(used & (1u <<i)){
+                    fprintf(output, "PUSH R%d\n", i);
+                }
+            }
+
+            int res = getReg();
+
+            /* pushing arguments */
+            struct ASTNode* tempArglist = root->ptr1->arglist;
+            while(tempArglist){
+                int reg = evaluate(tempArglist, output);
+                fprintf(output, "PUSH R%d\n", reg);
+                freeReg(reg);
+                tempArglist= tempArglist->arglist;
+            }
+
+            /* space for return value */
+            fprintf(output, "PUSH R%d\n", res);
+
+            fprintf(output, "CALL __F%d\n", root->ptr1->Gentry->flabel);
+
+            /* taking the return value */
+            fprintf(output, "POP R%d\nBRKP\n", res);
+
+            int temp = getReg();
+            tempArglist = root->ptr1->arglist;
+            while(tempArglist){
+                fprintf(output, "POP R%d\n",temp);
+                tempArglist = tempArglist->arglist;
+            }
+            freeReg(temp);
+
+            for(int i = 19; i>=0; i--){
+                if((used & (1u <<i)) && i!= res) {
+                    fprintf(output, "POP R%d\n", i);
+                }
+            }
+
+            return res;
+        }
+        case NODE_OR: {
+            int label_true = getNewLabel();
+            int label_end  = getNewLabel();
+
+            int res = getReg();
+            int left = evaluate(root->ptr1, output);
+
+            fprintf(output, "JNZ R%d, L%d\n", left, label_true);
+            freeReg(left);
+
+            int right = evaluate(root->ptr2, output);
+            fprintf(output, "MOV R%d, R%d\n", res, right);
+            freeReg(right);
+            fprintf(output, "JMP L%d\n", label_end);
+
+            fprintf(output, "L%d:\n", label_true);
+            fprintf(output, "MOV R%d, 1\n", res);
+
+            fprintf(output, "L%d:\n", label_end);
+
+            return res;
+        }
+        case NODE_AND: {
+            int label_false = getNewLabel();
+            int label_end   = getNewLabel();
+
+            int res = getReg();
+            int left = evaluate(root->ptr1, output);
+
+            fprintf(output, "JZ R%d, L%d\n", left, label_false);
+            freeReg(left);
+
+            int right = evaluate(root->ptr2, output);
+            fprintf(output, "MOV R%d, R%d\n", res, right);
+            freeReg(right);
+            fprintf(output, "JMP L%d\n", label_end);
+
+            fprintf(output, "L%d:\n", label_false);
+            fprintf(output, "MOV R%d, 0\n", res);
+
+            fprintf(output, "L%d:\n", label_end);
+
+            return res;
+        }
+
     }
-    if(root->nodetype == NODE_DEREF){
-        int reg = getReg();
 
-        fprintf(output, "MOV R%d, [%d]\n", reg, root->left->STentry->binding);
-        fprintf(output, "MOV R%d, [R%d]\n", reg, reg);
-
-        return reg;
-    }
-
-    int left = codeGen(root->left, output);
-    int right = codeGen(root->right, output);
+    int left = codeGen(root->ptr1, output);
+    int right = codeGen(root->ptr2, output);
 
     switch(root->nodetype){
         case NODE_ADD:   
@@ -219,74 +273,6 @@ int exprEvaluate(struct tnode* root, FILE* output){
         case NODE_MOD:   
             fprintf(output, "MOD R%d, R%d\n", left, right);
             break;
-    }
-
-    freeReg(right);
-    return left;
-}
-
-int boolEvaluate(struct tnode* root, FILE* output){
-    if(root->nodetype==NODE_LEAF){
-        int reg = getReg();
-
-        if(reg==-1){
-            printf("Out of registers\n");
-            exit(1);
-        }
-        switch(root->type){
-            case TYPE_INT: 
-                fprintf(output, "MOV R%d, %d\n", reg, root->val);
-                break;
-            case TYPE_STR: 
-                fprintf(output, "MOV R%d, %s\n", reg, root->str_val);
-                break;
-            case TYPE_ID_INT:
-            case TYPE_ID_STR: {
-                
-                int addr = root->STentry->binding;
-                fprintf(output, "MOV R%d, %d\n", reg, addr);
-                
-                if(root->STentry->isArray){
-                    if(root->right==NULL){
-                        int colOffset = exprEvaluate(root->left, output);
-                        fprintf(output,"ADD R%d, R%d\n", reg, colOffset);
-                        freeReg(colOffset);
-                    }
-                    else{
-                        int rowOffset = exprEvaluate(root->right, output);
-                        int colOffset = exprEvaluate(root->left, output);
-
-                        int temp = getReg();
-
-                        fprintf(output, "MOV R%d, %d\n", temp, root->STentry->colSize);
-                        fprintf(output, "MUL R%d, R%d\n", temp, rowOffset);
-                        fprintf(output, "ADD R%d, R%d\n", temp, colOffset);
-                        fprintf(output, "ADD R%d, R%d\n", reg, temp);
-
-                        freeReg(temp);
-                        freeReg(rowOffset);
-                        freeReg(colOffset);
-                    }
-                }
-                
-                fprintf(output, "MOV R%d, [R%d]\n", reg, reg);
-            }
-        }
-        return reg;
-    }
-    if(root->nodetype == NODE_DEREF){
-        int reg = getReg();
-
-        fprintf(output, "MOV R%d, [%d]\n", reg, root->left->STentry->binding);
-        fprintf(output, "MOV R%d, [R%d]\n", reg, reg);
-
-        return reg;
-    }
-
-    int left = codeGen(root->left, output);
-    int right = codeGen(root->right, output);
-
-    switch (root->nodetype){
         case NODE_LT:
             fprintf(output, "LT R%d, R%d\n", left, right);
             break;
@@ -319,23 +305,19 @@ int boolEvaluate(struct tnode* root, FILE* output){
     return left;
 }
 
-void generateIfElseBlock(FILE* output, struct tnode* root){
-    int flag = boolEvaluate(root->left, output);
+void generateIfElseBlock(FILE* output, struct ASTNode* root){
+    int flag = evaluate(root->ptr1, output);
     int ifEndLabel = getNewLabel();
 
-    if(root->nodetype == NODE_IFELSE){
-
+    if(root->ptr3){
         int elseLabel = getNewLabel();
 
         fprintf(output, "JZ R%d, L%d\n", flag, elseLabel);
-
-        codeGen(root->right->left, output);
+        codeGen(root->ptr2, output);
         fprintf(output, "JMP L%d\n", ifEndLabel);
 
-        if(root->right->right != NULL){
-            fprintf(output, "L%d:\n", elseLabel);
-            codeGen(root->right->right, output);
-        }
+        fprintf(output, "L%d:\n", elseLabel);
+        codeGen(root->ptr3, output);
 
         fprintf(output, "L%d:\n", ifEndLabel);
 
@@ -343,15 +325,15 @@ void generateIfElseBlock(FILE* output, struct tnode* root){
 
         fprintf(output, "JZ R%d, L%d\n", flag, ifEndLabel);
 
-        codeGen(root->right->left, output);
+        codeGen(root->ptr2, output);
+
         fprintf(output, "L%d:\n", ifEndLabel);
 
     }
 
     freeReg(flag);
 }
-
-void generateWhileBlock(FILE* output, struct tnode* root){
+void generateWhileBlock(FILE* output, struct ASTNode* root){
 
     int startLabel = getNewLabel();
     int endLabel = getNewLabel();
@@ -360,18 +342,19 @@ void generateWhileBlock(FILE* output, struct tnode* root){
 
     fprintf(output, "L%d:\n", startLabel);
 
-    int flag = boolEvaluate(root->left, output);
+    int flag = evaluate(root->ptr1, output);
 
     fprintf(output, "JZ R%d, L%d\n", flag, endLabel);
-    codeGen(root->right, output);
+
+    codeGen(root->ptr2, output);
 
     fprintf(output, "JMP L%d\n", startLabel);
     fprintf(output, "L%d:\n", endLabel);
 
+    freeReg(flag);
     popLoop();
 }
-
-void generateDoWhileBlock(FILE* output, struct tnode* root){
+void generateDoWhileBlock(FILE* output, struct ASTNode* root){
 
     int startLabel = getNewLabel();
     int endLabel = getNewLabel();
@@ -379,18 +362,19 @@ void generateDoWhileBlock(FILE* output, struct tnode* root){
     pushLoop(startLabel, endLabel);
 
     fprintf(output, "L%d:\n", startLabel);
-    codeGen(root->right, output);
 
-    int flag = boolEvaluate(root->left, output);
+    codeGen(root->ptr2, output);
+
+    int flag = evaluate(root->ptr1, output);
 
     fprintf(output, "JNZ R%d, L%d\n", flag, startLabel);
 
     fprintf(output, "L%d:\n", endLabel);
 
+    freeReg(flag);
     popLoop();
 }
-
-void generateRptUtlBlock(FILE* output, struct tnode* root){
+void generateRptUtlBlock(FILE* output, struct ASTNode* root){
 
     int startLabel = getNewLabel();
     int endLabel = getNewLabel();
@@ -398,164 +382,142 @@ void generateRptUtlBlock(FILE* output, struct tnode* root){
     pushLoop(startLabel, endLabel);
 
     fprintf(output, "L%d:\n", startLabel);
-    codeGen(root->right, output);
+    codeGen(root->ptr2, output);
 
-    int flag = boolEvaluate(root->left, output);
+    int flag = evaluate(root->ptr1, output);
 
     fprintf(output, "JNZ R%d, L%d\n", flag, startLabel);
 
     fprintf(output, "L%d:\n", endLabel);
 
+    freeReg(flag);
     popLoop();
 }
 
-int codeGen(struct tnode* root, FILE* output){
-    if(!root)
-        return -1;
-
-    if(root->nodetype==NODE_LEAF){
-        int reg = getReg();
-
-        switch(root->type){
-            case TYPE_INT: 
-                fprintf(output, "MOV R%d, %d\n", reg, root->val);
-                break;
-            case TYPE_STR: 
-                fprintf(output, "MOV R%d, %s\n", reg, root->str_val);
-                break;
-            case TYPE_ID_INT:
-            case TYPE_ID_STR: {
-                
-                int addr = root->STentry->binding;
-                fprintf(output, "MOV R%d, %d\n", reg, addr);
-                
-                if(root->STentry->isArray){
-                    if(root->right==NULL){
-                        int colOffset = exprEvaluate(root->left, output);
-                        fprintf(output,"ADD R%d, R%d\n", reg, colOffset);
-                        freeReg(colOffset);
-                    }
-                    else{
-                        int rowOffset = exprEvaluate(root->right, output);
-                        int colOffset = exprEvaluate(root->left, output);
-
-                        int temp = getReg();
-
-                        fprintf(output, "MOV R%d, %d\n", temp, root->STentry->colSize);
-                        fprintf(output, "MUL R%d, R%d\n", temp, rowOffset);
-                        fprintf(output, "ADD R%d, R%d\n", temp, colOffset);
-                        fprintf(output, "ADD R%d, R%d\n", reg, temp);
-
-                        freeReg(temp);
-                        freeReg(rowOffset);
-                        freeReg(colOffset);
-                    }
-                }
-                
-                fprintf(output, "MOV R%d, [R%d]\n", reg, reg);
+int codeGen(struct ASTNode* root, FILE* output){
+    switch(root->nodetype){
+        case NODE_CONST:{
+            int reg = getReg();
+            if(TLookup("int") == root->type){
+                fprintf(output, "MOV R%d, %d\n", reg, root->value.intVal);
+            }else{
+                fprintf(output, "MOV R%d, %s\n", reg, root->value.strVal);
             }
+            return reg;
         }
+        case NODE_ID:{
 
-        return reg;
+            int reg = getAddr(output, root);
+            fprintf(output, "MOV R%d, [R%d]\n", reg, reg);
+            return reg;
+        
+        }
+        case NODE_FUNCT:{
+
+            /* storing the used registers */
+            for(int i = 0; i<20; i++){
+                if(used & (1u <<i)){
+                    fprintf(output, "PUSH R%d\n", i);
+                }
+            }
+
+            int res = getReg();
+
+            /* pushing arguments */
+            struct ASTNode* tempArglist = root->ptr1->arglist;
+            while(tempArglist){
+                int reg = evaluate(tempArglist, output);
+                fprintf(output, "PUSH R%d\n", reg);
+                freeReg(reg);
+                tempArglist= tempArglist->arglist;
+            }
+
+            /* space for return value */
+            fprintf(output, "PUSH R%d\n", res);
+
+            fprintf(output, "CALL __F%d\n", root->ptr1->Gentry->flabel);
+
+            /* taking the return value */
+
+            int usedReg = regNum;
+
+
+            fprintf(output, "POP R%d\nBRKP\n", res);
+
+            int temp = getReg();
+            tempArglist = root->ptr1->arglist;
+            while(tempArglist){
+                fprintf(output, "POP R%d\n",temp);
+                tempArglist = tempArglist->arglist;
+            }
+            freeReg(temp);
+
+            for(int i = 19; i>=0; i--){
+                if((used & (1u <<i)) && i!= res) {
+                    fprintf(output, "POP R%d\n", i);
+                }
+            }
+
+            return res;
+        }
     }
-
-    if(root->nodetype == NODE_DEREF){
-        int reg = getReg();
-
-        fprintf(output, "MOV R%d, [%d]\n", reg, root->left->STentry->binding);
-        fprintf(output, "MOV R%d, [R%d]\n", reg, reg);
-
-        return reg;
-    }
-
     switch (root->nodetype){
+        case NODE_CONST:{
+            int reg = getReg();
+            if(TLookup("int") == root->type){
+                fprintf(output, "MOV R%d, %d\n", reg, root->value.intVal);
+            }else{
+                fprintf(output, "MOV R%d, %s\n", reg, root->value.strVal);
+            }
+            return reg;
+        }
+        case NODE_ID:{
+            int reg = getAddr(output, root);
+            fprintf(output, "MOV R%d, [R%d]\n", reg, reg);
+            return reg;
+        }
         case NODE_ADD:
         case NODE_SUB:
         case NODE_MUL:
         case NODE_MOD:
         case NODE_DIV: {
-            return exprEvaluate(root, output);
+            return evaluate(root, output);
         }
 
         case NODE_READ:{
-            readFromTerminal(output, root->left);
+            readFromTerminal(output, root->ptr1);
             return -1;
         }
 
         case NODE_WRITE:{
-            int reg = exprEvaluate(root->left, output);
+            int reg = evaluate(root->ptr1, output);
+    fprintf(output, "BRKP\n");
 
             writeToTerminal(output, reg);
             freeReg(reg);
-            
             return -1;
         }
 
         case NODE_ASSIGN:{
-            if(root->right->nodetype == NODE_ADDR){
-                fprintf(output, "MOV [%d], %d\n", root->left->STentry->binding, root->right->left->STentry->binding);
-                return -1;
-            }
-            int res = exprEvaluate(root->right, output);
 
-            if(root->left->nodetype == NODE_DEREF){  
-                int temp = getReg();
-
-                fprintf(output, "MOV R%d, [%d]\n", temp, root->left->left->STentry->binding);  
-                fprintf(output, "MOV [R%d], R%d\n", temp, res);
-
-
-                freeReg(temp);
-                freeReg(res);
-                return -1;
-            }
-
-                    
-            int reg = getReg();
+            int res = evaluate(root->ptr2, output);
+            int addr = getAddr(output, root->ptr1);
             
-            int addr = root->left->STentry->binding;
+            fprintf(output, "MOV [R%d], R%d\n", addr, res);
 
-            fprintf(output, "MOV R%d, %d\n", reg, addr);
-            
-            if(root->left->STentry->isArray){
-                if(root->left->right==NULL){
-                    int colOffset = exprEvaluate(root->left->left, output);
-                    fprintf(output,"ADD R%d, R%d\n", reg, colOffset);
-                    freeReg(colOffset);
-                }
-                else{
-                    int rowOffset = exprEvaluate(root->left->right, output);
-                    int colOffset = exprEvaluate(root->left->left, output);
-
-                    int temp = getReg();
-
-                    fprintf(output, "MOV R%d, %d\n", temp, root->left->STentry->colSize);
-                    fprintf(output, "MUL R%d, R%d\n", temp, rowOffset);
-                    fprintf(output, "ADD R%d, R%d\n", temp, colOffset);
-                    fprintf(output, "ADD R%d, R%d\n", reg, temp);
-
-                    freeReg(temp);
-                    freeReg(rowOffset);
-                    freeReg(colOffset);
-                }
-            }
-            
-            fprintf(output, "MOV [R%d], R%d\n", reg, res);
-
+            freeReg(addr);
             freeReg(res);
-            freeReg(reg);
 
             return -1;
         }
 
         case NODE_CONNECTOR:{
-            codeGen(root->left, output);
-            codeGen(root->right, output);
+            codeGen(root->ptr1, output);
+            codeGen(root->ptr2, output);
             return -1;
         }
 
-        case NODE_IF:
-        case NODE_IFELSE:{
+        case NODE_IF:{
             generateIfElseBlock(output, root);
             return -1;
         }
@@ -588,20 +550,81 @@ int codeGen(struct tnode* root, FILE* output){
             }
             return -1;
         }
+        case NODE_RET:{
+
+            int res = evaluate(root->ptr1, output);
+            int temp = getReg();
+            
+            
+            if(!isMain){
+                fprintf(output, "MOV SP, BP\n");
+                fprintf(output,"MOV R%d, BP\n", temp);
+                fprintf(output,"SUB R%d, 2\n", temp);
+                fprintf(output, "MOV [R%d], R%d\n", temp, res);
+            }
+
+            freeReg(temp);
+            freeReg(res);
+            return -1;
+        }
+        
 
         default:
             return -1;
     }
 }
 
+void generateFunct(FILE* output, struct ASTNode* id, struct ASTNode* code){
 
-void createOutput(struct tnode* root, FILE* output){
+    if(id == NULL){
+        fprintf(output, "MAIN:\n");
+        struct LSymbol* tempLST = LST;
 
-    // header for the executable
+        fprintf(output, "MOV BP, SP\n");
+
+        while(tempLST){
+            fprintf(output, "PUSH R0\n");
+            tempLST = tempLST->next;
+        }
+        isMain = true;
+        codeGen(code, output);
+        isMain = false;
+        regNum = 0;
+
+        return;
+    }
+
+    fprintf(output, "__F%d:\n", id->Gentry->flabel);
+
+    fprintf(output, "BRKP\n");
+
+    fprintf(output, "PUSH BP\nMOV BP, SP\n");
+    
+    struct param* tempParamlist = id->Gentry->paramlist;
+    struct LSymbol* tempLST = LST;
+
+
+    while(tempParamlist){
+        tempParamlist = tempParamlist->next;
+        tempLST = tempLST->next;
+    }
+
+    while(tempLST){
+        fprintf(output, "PUSH R0\n");
+        tempLST = tempLST->next;
+    }
+
+    codeGen(code, output);
+
+    fprintf(output, "POP BP\n");
+    fprintf(output, "RET\n");
+    
+    used = 0;
+}
+
+void setHeader(FILE* output){
     fprintf(output, "0\n2056\n0\n0\n0\n0\n0\n0\n");
-    fprintf(output, "ADD SP, 200\n");
-    int r = codeGen(root, output);
+    fprintf(output, "MOV SP, %d\n", currBinding);
+    fprintf(output, "JMP MAIN\n");
 
-    freeReg(r);
-    exitProg(output);
 }

@@ -5,47 +5,52 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <string.h>
 
-struct GSymbolTable{
+
+union Constant{
+    int intVal;
+    char* strVal;
+};
+
+
+struct GSymbol{
     char* name;
-    int type;
+    struct Typetable *type; 
     int size;
     int binding;
     
     int rowSize;
     int colSize;
 
-    bool isFunct;
     int flabel;
     
     struct param* paramlist;
-    struct GSymbolTable* next;
+    struct GSymbol* next;
 };
 
 struct param{
     char* name;
-    int type;
+    struct Typetable *type; 
     struct param* next;
 };
 
-struct LSymbolTable{
+struct LSymbol{
     char* name;
-    int type;
+    struct Typetable *type; 
     int binding;
-    struct LSymbolTable* next;
+    struct LSymbol* next;
 };
 
-struct tnode{
-    int val;
-    char* str_val;
-    int type;
-    char *varname;
-    int nodetype;
-    struct GSymbolTable* STentry;
-    struct tnode *left;
-    struct tnode *right;
+struct ASTNode{
+  struct Typetable *type;           //pointer to the type table entry
+  int nodetype;                     //node type information,eg : NODETYPE_WHILE,NODETYPE_PLUS,NODETYPE_STMT etc 
+  char *name;                       //stores the variable/function name in case of variable/function nodes
+  union Constant value;             //stores the value of the constant if the node corresponds to a constant
+  struct ASTNode *arglist;          //pointer to the expression list given as arguments to a function call
+  struct ASTNode *ptr1,*ptr2,*ptr3; //Subtrees of the node. (Maximum Subtrees for IF THEN ELSE)
+  struct GSymbol *Gentry;           //pointer to GST entry for global variables and functions
+  struct LSymbol *Lentry;           //pointer to the function's LST for local variables and arguements
 };
-
-#include "./constant.h"
 
 #endif

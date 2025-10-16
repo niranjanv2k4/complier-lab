@@ -10,20 +10,8 @@ int getMem(int size){
     return mem;
 }
 
-
-void setType(struct GSymbolTable* head, struct tnode* id){
-    struct GSymbolTable* temp = GSTLookup(head, id->varname);
-    if(temp==NULL){
-        printf("Variable '%s' not declared.\n", id->varname);
-        exit(1);
-    }
-
-    id->STentry = temp;
-    id->type = temp->type;
-}
-
-struct GSymbolTable* GSTLookup(struct GSymbolTable* head, char* name){
-    struct GSymbolTable* temp = head;
+struct GSymbol* GSTLookup(char* name){
+    struct GSymbol* temp = GST;
 
     while(temp){
         if(strcmp(temp->name, name)==0){
@@ -35,28 +23,26 @@ struct GSymbolTable* GSTLookup(struct GSymbolTable* head, char* name){
     return NULL;
 }
 
-struct GSymbolTable* insertToGlobal(struct GSymbolTable* head, struct tnode* id, int type, int rowSize, int colSize, struct param* list, bool isFunct){
+struct GSymbol* insertToGlobal(struct ASTNode* id, struct Typetable* type, int rowSize, int colSize, struct param* list, int nodetype){
 
-    if(GSTLookup(head, id->varname)!=NULL){
-        printf("Variable '%s' already declared\n", id->varname);
+    if(GSTLookup(id->name)!=NULL){
+        printf("Variable '%s' already declared\n", id->name);
         exit(1);
     }
 
-    struct GSymbolTable* node = malloc(sizeof(struct GSymbolTable));
+    struct GSymbol* node = malloc(sizeof(struct GSymbol));
 
-    node->name = malloc(strlen(id->varname)+1);
-    strcpy(node->name, id->varname);
+    node->name = strdup(id->name);
     
     node->type = type;
 
-    node->isFunct = isFunct;
     node->rowSize = rowSize;
     node->colSize = colSize;
 
     node->size = rowSize*colSize;
 
     /* NO LABEL IF IT IS A FUNCTION */
-    if(isFunct){
+    if(nodetype == NODE_FUNCT){
         node->binding = -1;
         node->paramlist = list;
         node->flabel = functionLabel++;
@@ -69,13 +55,13 @@ struct GSymbolTable* insertToGlobal(struct GSymbolTable* head, struct tnode* id,
 
     node->next = NULL;
 
-    id->STentry = node;
+    id->Gentry = node;
     id->type = type;
 
-    if(head==NULL){
+    if(GST==NULL){
         return node;
     }
-    struct GSymbolTable* temp = head;
+    struct GSymbol* temp = GST;
 
     while(temp->next){
         temp = temp->next;
@@ -83,40 +69,14 @@ struct GSymbolTable* insertToGlobal(struct GSymbolTable* head, struct tnode* id,
 
     temp->next = node;
 
-    return head;
+    return GST;
 }
 
-void printGST(struct GSymbolTable* head){
-    struct GSymbolTable* temp = head;
-    
-    printf("name\ttype\tsize\tbinding\tFlabel\n");
-
-    while(temp){
-
-        printf("%s\t%d\t%d\t%d\t%d\t", temp->name, temp->type, temp->size, temp->binding, temp->flabel);
-
-        if(temp->isFunct){
-
-            printf("\tParameters: ");
-            struct param* list = temp->paramlist;
-
-            while(list){
-                printf("%s ", list->type==TYPE_INT?"int":"str");
-                printf("%s", list->name);
-                if(list->next)printf(", ");
-                list = list->next;
-            }
-        }
-        printf("\n");
-        temp = temp->next;
-    }
-}
-
-struct param* createParam(int type, struct tnode* id){
+struct param* createParam(struct Typetable* type, struct ASTNode* id){
     struct param* node = malloc(sizeof(struct param));
 
-    node->name = malloc(strlen(id->varname)+1);
-    strcpy(node->name, id->varname);
+    node->name = malloc(strlen(id->name)+1);
+    strcpy(node->name, id->name);
 
     node->type = type;
     node->next = NULL;
@@ -138,27 +98,112 @@ struct param* appendParam(struct param* head, struct param* node){
     return head;
 }
 
-void validateFunct(struct GSymbolTable* list, int type, struct tnode* id, struct param* paramlist){
-    struct GSymbolTable* temp = list;
+struct LSymbol* createLST(struct ASTNode* id, struct Typetable* type){
+
+    struct LSymbol* node = malloc(sizeof(struct LSymbol));
+
+    node->name = strdup(id->name);
+
+    // if(TLookup("int") == type){
+    //     node->type = isPtr? TLookup("int ptr"):TLookup("int");
+    // }else{
+    //     node->type = isPtr? TLookup("str ptr"):TLookup("str");
+    // }
+
+    node->type = type;
+    node->next = NULL;
+
+    if(LST == NULL)
+        return node;
+
+    struct LSymbol* temp = LST;
+    while(temp->next){
+        temp = temp->next;
+    }
+
+    temp->next = node;
+
+    return LST;
+}
+
+
+/* FUNCTIONS TO SET TYPES */
+void setGType(struct ASTNode* id){
+    struct GSymbol* temp = GSTLookup(id->name);
+    if(temp==NULL){
+        printf("Variable '%s' not declared.\n", id->name);
+        exit(1);
+    }
+
+    id->Gentry = temp;
+    id->type = temp->type;
+}
+
+void setType(struct ASTNode* id){
+    struct LSymbol* temp = LST;
     while(temp){
-        if(strcmp(id->varname, temp->name)==0){
+        if(strcmp(temp->name, id->name)==0){
+            break;
+        }
+        temp = temp->next;
+    }
+
+    if(temp == NULL){
+        setGType(id);
+        return;
+    }
+
+    id->type = temp->type;
+    id->Lentry = temp;
+
+}
+
+/* ADDING PARAMETERS TO LST */
+struct LSymbol* addParamtoLST(struct param* id) {
+    
+    struct LSymbol* node = malloc(sizeof(struct LSymbol));
+    
+    node->name = strdup(id->name);
+    node->type = id->type;
+    node->next = NULL;
+
+    if(LST == NULL)
+        return node;
+
+    struct LSymbol* temp = LST;
+    while(temp->next){
+        temp = temp->next;
+    }
+    temp->next = node;
+
+    return LST;
+}
+
+
+/* FUNCTION FOR VALIDATING THE FUNCTIONS */
+void validateFunct(struct Typetable* type, struct ASTNode* id, struct param* paramlist, struct ASTNode* return_val){
+
+    struct GSymbol* temp = GST;
+    while(temp){
+        if(strcmp(id->name, temp->name)==0){
             break;
         }
         temp = temp->next;
     }
 
     if(temp==NULL){
-        printf("No function '%s' declared\n", id->varname);
+        printf("No function '%s' declared\n", id->name);
         exit(1);
-    }else if(!temp->isFunct){
-        printf("'%s' is not a function\n", id->varname);
+    }else if(temp->flabel == -1){
+        printf("'%s' is not a function\n", id->name);
         exit(1);
-    }else if(temp->type!=type){
-        printf("Conflicting return types\n");
+    }
+    else if(type != temp->type || return_val->ptr2->type != temp->type){
+        printf("Conflicting return types for '%s'\n", temp->name);
         exit(1);
     }
 
-    id->STentry = temp;
+    id->Gentry = temp;
 
     struct param* declared = temp->paramlist;
     struct param* defined = paramlist;
@@ -169,7 +214,7 @@ void validateFunct(struct GSymbolTable* list, int type, struct tnode* id, struct
             exit(1);
         }
         if(defined->type != declared->type){
-            printf("Conflicting types for '%s'\n",defined->name);
+            printf("Conflicting types for '%s' in '%s'\n",defined->name, id->name);
             exit(1);
         }
         defined = defined->next;
@@ -180,27 +225,76 @@ void validateFunct(struct GSymbolTable* list, int type, struct tnode* id, struct
         printf("Different parameter numbers\n");
         exit(1);
     }
-}
 
-struct LSymbolTable* createLST(struct LSymbolTable* LST, struct tnode* id, int type){
 
-    struct LSymbolTable* node = malloc(sizeof(struct LSymbolTable));
+    int relativeAddr = -2;
+    struct LSymbol* tempLST = LST;
 
-    node->name = malloc(sizeof(char)*strlen(id->varname));
-    strcpy(node->name, id->varname);
-
-    node->type = type;
-    node->next = NULL;
-
-    if(LST == NULL)
-        return node;
-
-    struct LSymbolTable* temp = LST;
-    while(temp->next){
-        temp = temp->next;
+    struct param* tempParamlist = paramlist;
+    while(tempParamlist){
+        relativeAddr--;
+        tempParamlist = tempParamlist->next;
     }
 
-    temp->next = node;
+    while(tempLST){
+        if(relativeAddr == -2)
+            relativeAddr = 1;
+        tempLST->binding = relativeAddr++;
+        tempLST=tempLST->next;
+    }
+}
 
-    return LST;
+void validateMain(struct ASTNode* node){
+    if(node->ptr2->type != TLookup("int")){
+        printf("Error: Conflicting  return type for 'main'\n");
+        exit(1);
+    }
+    struct LSymbol* tempLST = LST;
+
+    int relativeAddr = 1;
+
+    while(tempLST){
+        tempLST->binding = relativeAddr++;
+        tempLST=tempLST->next;
+    }
+}
+
+
+/* FUNCTION FOR PRINTING SYMBOL TABLES */
+void printLST(){
+    struct LSymbol* temp = LST;
+    
+    printf("name\ttype\tbinding\n");
+
+    while(temp){
+        printf("%s\t%s\t%d\n", temp->name, temp->type->name, temp->binding);
+        temp = temp->next;
+    }
+    printf("\n");
+}
+
+void printGST(){
+    struct GSymbol* temp = GST;
+    printf("\t\tGST\t\t");
+    printf("\nname\ttype\tsize\tbinding\tFlabel\n");
+
+    while(temp){
+
+        printf("%s\t%s\t%d\t%d\t%d\t", temp->name, temp->type->name, temp->size, temp->binding, temp->flabel);
+
+        if(temp->flabel!=-1){
+
+            printf("\tParameters: ");
+            struct param* list = temp->paramlist;
+
+            while(list){
+                printf("%s %s", list->type->name, list->name);
+                if(list->next)
+                    printf(", ");
+                list = list->next;
+            }
+        }
+        printf("\n");
+        temp = temp->next;
+    }
 }
