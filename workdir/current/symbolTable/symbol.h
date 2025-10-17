@@ -27,7 +27,7 @@ struct LSymbol* addParamtoLST(struct param* list);
 /* Managing local variables*/
 struct LSymbol* createLST(struct ASTNode* id, struct Typetable* type);
 struct LSymbol* LSTLookup(char* name);
-void printLST();
+void printLST(char* name);
 
 
 void validateMain(struct ASTNode* node);

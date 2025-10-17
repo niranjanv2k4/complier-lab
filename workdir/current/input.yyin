@@ -1,60 +1,37 @@
-
-
-type
-  node
-  {
-    int d;
-    int s;
-    int t;
-  }
-endtype
-
 decl
-  node y,z,gcd(int a,int b);
+  int sumAvg(int *a, int *b, int *avg), *o;
 enddecl
 
-node gcd(int a,int b)
+int sumAvg(int *a, int *b, int *avg)
 {
   decl
-    int q,r,temp;
+    int s;
   enddecl
-
-  begin
-    if(b==0) then
-      y.d = a;
-      y.s = 1;
-      y.t = 0;
-    else
-      q = a/b;
-      r = a%b;
-      z = gcd(b,r);
-      temp = z.s;
-      y.s = z.t;
-      y.t = temp - (q*z.t);
-    endif;
-
-  return y;
-  end
+begin
+  s = *a + *b;
+  *avg = s / 2;
+  return s;
+end
 }
 
 int main()
 {
   decl
-    node res;
-    int a,b,c;
+    int x, y, total, average, *p;
   enddecl
+begin
+o = &x;
+  write("Enter two numbers: ");
+  read(x);
+  read(y);
 
-  begin
-    c = initialize();
-    y = alloc();
-    read(a);
-    read(b);
-    res = gcd(a,b);
-    write(res.d);
-    write(res.s);
-    write(res.t);
+  total = sumAvg(&x, &y, &average);
 
-  return 0;
-  end
+  write("Sum : ");
+  write(total);
+  write("Average : ");
+  write(average);
+
+  return 1+1;
+end
 }
-

@@ -20,7 +20,9 @@
 
     struct Typetable* current_type;
 
-    bool isFirst = true;
+    struct Typetable* ptrType(){
+        return current_type == TLookup("int")?TLookup("int ptr"):TLookup("str ptr");
+    }
 
 %}
 
@@ -31,6 +33,7 @@
     struct Arglist* Args;
     int type;
 }
+
 
 %token ADD SUB STAR DIV MOD
 %token T_BEGIN T_END READ WRITE ASSGN EOL
@@ -71,28 +74,24 @@
 %%
 
 program     :   GDeclBlock FDefBlock MainBlock  {   
-                                                    printf("Success\n");
                                                     exitProg(output);
                                                     printGST();  
                                                 }
             |   FDefBlock MainBlock             {   
-                                                    printf("Success\n");
                                                     exitProg(output);
                                                     printGST();  
                                                 }
             |   GDeclBlock MainBlock            {   
-                                                    printf("Success\n");
                                                     exitProg(output);
                                                     printGST();  
                                                 }
             |   MainBlock                       {
-                                                    printf("Success\n");
                                                     exitProg(output);
                                                     printGST();  
                                                 }
             ;
 
-GDeclBlock  :   DECL GDeclList ENDDECL          {   setHeader(output);  }
+GDeclBlock  :   DECL GDeclList ENDDECL          {   }
             |   DECL ENDDECL                    {   }
             ;
 GDeclList   :   GDeclList GDecl
@@ -108,6 +107,9 @@ Type        :   INT                             {   current_type = TLookup("int"
 Gid         :   ID                              {   GST = insertToGlobal($1, current_type, 1, 1,NULL, NODE_ID);    }
             |   ID '[' NUM ']'                  {   GST = insertToGlobal($1, current_type, 1, $3->value.intVal, NULL, NODE_ID); }
             |   ID '(' ParamList ')'            {   GST = insertToGlobal($1, current_type, 1, 1, $3, NODE_FUNCT);LST = NULL;    }
+            |   STAR ID                         {   
+                                                    GST = insertToGlobal($2, ptrType(), 1, 1, NULL, NODE_ID);    
+                                                }
             ;
 
 /* ------------------------------------------------------------------------------- */
@@ -115,18 +117,16 @@ FDefBlock   :   FDefBlock Fdef                  {      }
             |   Fdef                            {      }
             ;
 Fdef        :   INT ID '(' ParamList ')' '{' LDeclBlock Coderegion '}'      {   
+                                                                                setHeader(output);  
                                                                                 validateFunct(TLookup("int"), $2, $4, $8); 
-                                                                                printf("FUNCTION - %s\n", $2->name);
-                                                                                printLST(LST);
+                                                                                printLST($2->name);
                                                                                 generateFunct(output, $2, $8);
-                                                                                LST = NULL;
                                                                             }
             |   STR ID '(' ParamList ')' '{' LDeclBlock Coderegion '}'      {   
+                                                                                setHeader(output);  
                                                                                 validateFunct(TLookup("str"), $2, $4, $8);    
-                                                                                printf("FUNCTION - %s\n", $2->name);
+                                                                                printLST($2->name);
                                                                                 generateFunct(output, $2, $8);
-                                                                                printLST(LST);
-                                                                                LST = NULL;
                                                                             }
             ;
 ParamList   :   ParamList ',' Param     {   $$ = appendParam($1, $3); }
@@ -142,15 +142,23 @@ Param       :   INT ID                 {
                                             $$ = createParam(TLookup("str"), $2);  
                                             LST = addParamtoLST($$);
                                         }
+            |   INT STAR ID                 {   
+                                            $$ = createParam(TLookup("int ptr"), $3);  
+                                            LST = addParamtoLST($$);
+                                        }
+            |   STR STAR ID                  {
+                                            $$ = createParam(TLookup("str ptr"), $3);  
+                                            LST = addParamtoLST($$);
+                                        }
             ;
 
 /* --------------------------------------------------------------------------------- */
 
 MainBlock   :   INT MAIN '('')' '{' LDeclBlock Coderegion '}'   {   
+                                                                    setHeader(output);  
                                                                     validateMain($7);
-                                                                    printf("FUNCTION - MAIN\n");
+                                                                    printLST("MAIN");
                                                                     generateFunct(output, NULL, $7);
-                                                                    printLST(LST);
                                                                     LST = NULL;
                                                                    }
             ;
@@ -168,6 +176,12 @@ LDecl       :   Type IdList  EOL                                {  }
             ;
 IdList      :   IdList ',' ID                                   {   LST = createLST($3, current_type);   }
             |   ID                                              {   LST = createLST($1, current_type);   }
+            |   IdList ',' STAR ID                              {   
+                                                                    LST = createLST($4, ptrType());   
+                                                                }
+            |   STAR ID                                         {   
+                                                                    LST = createLST($2, ptrType());   
+                                                                }
             ;   
 
 /* ---------------------------------------------------------------------------------- */
@@ -239,10 +253,18 @@ IDENTIFIERS :   ID                                  {
                                                         setType($1);
                                                         $$ = createArrayNode($1, NULL, $3); 
                                                     }
+            |   STAR ID                             {
+                                                        setType($2);
+                                                        $$ = createDerefNode($2);
+                                                    }
+            |   '&' ID                              {
+                                                        setType($2);
+                                                        $$ = createAddrNode($2);
+                                                    }
             ;
 ArgList     :   ArgList ',' expr                    {   $$ = appendArgNode($1, $3); }
             |   expr                                {   $$ = $1; }
-            |                                       {   $$ = NULL; }
+            |                                       {   $$ = NULL;  }
             ;
         
 %%

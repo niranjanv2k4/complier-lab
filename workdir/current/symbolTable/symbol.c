@@ -261,9 +261,9 @@ void validateMain(struct ASTNode* node){
 
 
 /* FUNCTION FOR PRINTING SYMBOL TABLES */
-void printLST(){
+void printLST(char* name){
     struct LSymbol* temp = LST;
-    
+    printf("FUNCTION - %s\n", name);
     printf("name\ttype\tbinding\n");
 
     while(temp){

@@ -97,7 +97,7 @@ struct ASTNode* createDerefNode(struct ASTNode* id) {
     node->nodetype = NODE_DEREF;
     node->ptr1 = id;
     node->ptr2 = NULL;
-    node->type = TLookup(strcmp(id->type->name ,"int ptr") == 0 ? "int" : "str");
+    node->type = TLookup("int ptr") == id->type ? TLookup("int") : TLookup("str");
 
     return node;
 }
@@ -114,7 +114,7 @@ struct ASTNode* createAddrNode(struct ASTNode* id) {
     node->ptr1 = id;
     node->ptr2 = NULL;
 
-    node->type = TLookup(strcmp(id->type->name, "int") == 0 ? "int ptr" : "str ptr");
+    node->type = TLookup("int") == id->type ? TLookup("int ptr") : TLookup("str ptr");
 
     return node;
 }
@@ -151,7 +151,7 @@ struct ASTNode* createLeafNode(struct Typetable* type, char* varname, int val, c
     node->nodetype = varname?NODE_ID:NODE_CONST;
     node->type  = type;
 
-    if(type){
+    if(node->nodetype == NODE_CONST){
         if(strcmp(type->name,"int") == 0){
             node->value.intVal = val;
         }else if(strcmp(type->name,"str") == 0){
