@@ -23,7 +23,7 @@ struct GSymbol* GSTLookup(char* name){
     return NULL;
 }
 
-struct GSymbol* insertToGlobal(struct ASTNode* id, struct Typetable* type, int rowSize, int colSize, struct param* list, int nodetype){
+struct GSymbol* insertToGlobal(struct ASTNode* id, struct Typetable* type, int size, int rowSize, int colSize, struct param* list, int nodetype, bool isPointer){
 
     if(GSTLookup(id->name)!=NULL){
         printf("Variable '%s' already declared\n", id->name);
@@ -34,12 +34,12 @@ struct GSymbol* insertToGlobal(struct ASTNode* id, struct Typetable* type, int r
 
     node->name = strdup(id->name);
     
+    node->size = (colSize*colSize != 0)?colSize*rowSize:type->size;
     node->type = type;
 
     node->rowSize = rowSize;
     node->colSize = colSize;
-
-    node->size = rowSize*colSize;
+    node->isPointer = isPointer;
 
     /* NO LABEL IF IT IS A FUNCTION */
     if(nodetype == NODE_FUNCT){
@@ -69,7 +69,30 @@ struct GSymbol* insertToGlobal(struct ASTNode* id, struct Typetable* type, int r
 
     temp->next = node;
 
+    LST = NULL;
+
     return GST;
+}
+
+/* ADDING PARAMETERS TO LST */
+struct LSymbol* addParamtoLST(struct param* id) {
+    
+    struct LSymbol* node = malloc(sizeof(struct LSymbol));
+    
+    node->name = strdup(id->name);
+    node->type = id->type;
+    node->next = NULL;
+
+    if(LST == NULL)
+        return node;
+
+    struct LSymbol* temp = LST;
+    while(temp->next){
+        temp = temp->next;
+    }
+    temp->next = node;
+
+    return LST;
 }
 
 struct param* createParam(struct Typetable* type, struct ASTNode* id){
@@ -80,6 +103,8 @@ struct param* createParam(struct Typetable* type, struct ASTNode* id){
 
     node->type = type;
     node->next = NULL;
+
+    LST = addParamtoLST(node);
 
     return node;
 }
@@ -98,21 +123,15 @@ struct param* appendParam(struct param* head, struct param* node){
     return head;
 }
 
-struct LSymbol* createLST(struct ASTNode* id, struct Typetable* type){
+struct LSymbol* createLST(struct ASTNode* id, struct Typetable* type, bool isPointer){
 
     struct LSymbol* node = malloc(sizeof(struct LSymbol));
 
     node->name = strdup(id->name);
 
-    // if(TLookup("int") == type){
-    //     node->type = isPtr? TLookup("int ptr"):TLookup("int");
-    // }else{
-    //     node->type = isPtr? TLookup("str ptr"):TLookup("str");
-    // }
-
     node->type = type;
     node->next = NULL;
-
+    node->isPointer = isPointer;
     if(LST == NULL)
         return node;
 
@@ -137,6 +156,7 @@ void setGType(struct ASTNode* id){
 
     id->Gentry = temp;
     id->type = temp->type;
+    id->isPointer = temp->isPointer;
 }
 
 void setType(struct ASTNode* id){
@@ -155,30 +175,9 @@ void setType(struct ASTNode* id){
 
     id->type = temp->type;
     id->Lentry = temp;
+    id->isPointer = temp->isPointer;
 
 }
-
-/* ADDING PARAMETERS TO LST */
-struct LSymbol* addParamtoLST(struct param* id) {
-    
-    struct LSymbol* node = malloc(sizeof(struct LSymbol));
-    
-    node->name = strdup(id->name);
-    node->type = id->type;
-    node->next = NULL;
-
-    if(LST == NULL)
-        return node;
-
-    struct LSymbol* temp = LST;
-    while(temp->next){
-        temp = temp->next;
-    }
-    temp->next = node;
-
-    return LST;
-}
-
 
 /* FUNCTION FOR VALIDATING THE FUNCTIONS */
 void validateFunct(struct Typetable* type, struct ASTNode* id, struct param* paramlist, struct ASTNode* return_val){
@@ -289,6 +288,18 @@ void printGST(){
 
             while(list){
                 printf("%s %s", list->type->name, list->name);
+                if(list->next)
+                    printf(", ");
+                list = list->next;
+            }
+        }
+        else if(temp->type->fields){
+
+            printf("\tFields: ");
+            struct Fieldlist* list = temp->type->fields;
+
+            while(list){
+                printf("%s %s %d", list->type->name, list->name, list->fieldIndex);
                 if(list->next)
                     printf(", ");
                 list = list->next;

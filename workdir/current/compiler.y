@@ -11,18 +11,12 @@
     int yyerror();
     int yylex();
 
-
     FILE *output;
 
     struct GSymbol* GST = NULL;
     struct param* paramlist = NULL;
     struct LSymbol* LST = NULL;
-
     struct Typetable* current_type;
-
-    struct Typetable* ptrType(){
-        return current_type == TLookup("int")?TLookup("int ptr"):TLookup("str ptr");
-    }
 
 %}
 
@@ -42,7 +36,7 @@
 %token GE LE EQ GT LT NE 
 %token WHILE DO END_WHILE BREAK CONTINUE REPEAT UNTILL 
 %token DECL ENDDECL 
-%token INT STR
+%token INT STR TUPLE
 %token MAIN
 
 %token  RETURN
@@ -68,27 +62,15 @@
 %left ADD SUB           
 %left STAR DIV MOD  
 
-
-
+%nonassoc '.'
+%right '&'
 
 %%
 
-program     :   GDeclBlock FDefBlock MainBlock  {   
-                                                    exitProg(output);
-                                                    printGST();  
-                                                }
-            |   FDefBlock MainBlock             {   
-                                                    exitProg(output);
-                                                    printGST();  
-                                                }
-            |   GDeclBlock MainBlock            {   
-                                                    exitProg(output);
-                                                    printGST();  
-                                                }
-            |   MainBlock                       {
-                                                    exitProg(output);
-                                                    printGST();  
-                                                }
+program     :   GDeclBlock FDefBlock MainBlock  {   exitProg(output);printGST();  }
+            |   FDefBlock MainBlock             {   exitProg(output);printGST();  }
+            |   GDeclBlock MainBlock            {   exitProg(output);printGST();  }
+            |   MainBlock                       {   exitProg(output);printGST();  }
             ;
 
 GDeclBlock  :   DECL GDeclList ENDDECL          {   }
@@ -98,18 +80,17 @@ GDeclList   :   GDeclList GDecl
             |   GDecl
 GDecl       :   Type GidList EOL                {   }
             ;
+Type        :   INT                             {   current_type = TLookup("int");    }
+            |   STR                             {   current_type = TLookup("str");    }
+            |   TUPLE ID '(' ParamList ')'      {   current_type = TInstallTuple($2, $4);   }
+            ;
 GidList     :   GidList ',' Gid
             |   Gid
             ;
-Type        :   INT                             {   current_type = TLookup("int");    }
-            |   STR                             {   current_type = TLookup("str");    }
-            ;
-Gid         :   ID                              {   GST = insertToGlobal($1, current_type, 1, 1,NULL, NODE_ID);    }
-            |   ID '[' NUM ']'                  {   GST = insertToGlobal($1, current_type, 1, $3->value.intVal, NULL, NODE_ID); }
-            |   ID '(' ParamList ')'            {   GST = insertToGlobal($1, current_type, 1, 1, $3, NODE_FUNCT);LST = NULL;    }
-            |   STAR ID                         {   
-                                                    GST = insertToGlobal($2, ptrType(), 1, 1, NULL, NODE_ID);    
-                                                }
+Gid         :   ID                              {   GST = insertToGlobal($1, current_type, 1, 0, 0,NULL, NODE_ID, false);    }
+            |   ID '[' NUM ']'                  {   GST = insertToGlobal($1, current_type, $3->value.intVal, 1, $3->value.intVal, NULL, NODE_ID, false); }
+            |   ID '(' ParamList ')'            {   GST = insertToGlobal($1, current_type, 0, 0, 0, $3, NODE_FUNCT,false);    }
+            |   STAR ID                         {   GST = insertToGlobal($2, current_type, 1, 0, 0, NULL, NODE_ID, true);    }
             ;
 
 /* ------------------------------------------------------------------------------- */
@@ -129,29 +110,7 @@ Fdef        :   INT ID '(' ParamList ')' '{' LDeclBlock Coderegion '}'      {
                                                                                 generateFunct(output, $2, $8);
                                                                             }
             ;
-ParamList   :   ParamList ',' Param     {   $$ = appendParam($1, $3); }
-            |   Param                   {   $$ = $1; }
-            |                           {   $$ = NULL; }
-            ;
-
-Param       :   INT ID                 {   
-                                            $$ = createParam(TLookup("int"), $2);  
-                                            LST = addParamtoLST($$);
-                                        }
-            |   STR ID                  {
-                                            $$ = createParam(TLookup("str"), $2);  
-                                            LST = addParamtoLST($$);
-                                        }
-            |   INT STAR ID                 {   
-                                            $$ = createParam(TLookup("int ptr"), $3);  
-                                            LST = addParamtoLST($$);
-                                        }
-            |   STR STAR ID                  {
-                                            $$ = createParam(TLookup("str ptr"), $3);  
-                                            LST = addParamtoLST($$);
-                                        }
-            ;
-
+            
 /* --------------------------------------------------------------------------------- */
 
 MainBlock   :   INT MAIN '('')' '{' LDeclBlock Coderegion '}'   {   
@@ -165,6 +124,19 @@ MainBlock   :   INT MAIN '('')' '{' LDeclBlock Coderegion '}'   {
 
 /* --------------------------------------------------------------------------------- */
 
+ParamList   :   ParamList ',' Param     {   $$ = appendParam($1, $3); }
+            |   Param                   {   $$ = $1; }
+            |                           {   $$ = NULL; }
+            ;
+
+Param       :   INT ID                  {   $$ = createParam(TLookup("int"), $2);   }
+            |   STR ID                  {   $$ = createParam(TLookup("str"), $2);   }
+            |   INT STAR ID             {   $$ = createParam(TLookup("int ptr"), $3);   }
+            |   STR STAR ID             {   $$ = createParam(TLookup("str ptr"), $3);   }
+            ;
+
+/* --------------------------------------------------------------------------------- */
+
 LDeclBlock  :   DECL LDeclList ENDDECL                          {  }
             |
             |   DECL ENDDECL
@@ -174,14 +146,10 @@ LDeclList   :   LDeclList LDecl                                 {  }
             ;
 LDecl       :   Type IdList  EOL                                {  }
             ;
-IdList      :   IdList ',' ID                                   {   LST = createLST($3, current_type);   }
-            |   ID                                              {   LST = createLST($1, current_type);   }
-            |   IdList ',' STAR ID                              {   
-                                                                    LST = createLST($4, ptrType());   
-                                                                }
-            |   STAR ID                                         {   
-                                                                    LST = createLST($2, ptrType());   
-                                                                }
+IdList      :   IdList ',' ID                                   {   LST = createLST($3, current_type, false);   }
+            |   ID                                              {   LST = createLST($1, current_type, true);   }
+            |   IdList ',' STAR ID                              {   LST = createLST($4, current_type, false);   }
+            |   STAR ID                                         {   LST = createLST($2, current_type, true);    }
             ;   
 
 /* ---------------------------------------------------------------------------------- */
@@ -244,27 +212,17 @@ expr        :   expr ADD expr                       {   $$ = createTreeNode(NODE
                                                     }
             |   IDENTIFIERS                         {   $$ = $1;    }
             ;
-
-IDENTIFIERS :   ID                                  {   
-                                                        setType($1);
-                                                        $$ = $1;    
-                                                    }
-            |   ID '[' expr ']'                     {   
-                                                        setType($1);
-                                                        $$ = createArrayNode($1, NULL, $3); 
-                                                    }
-            |   STAR ID                             {
-                                                        setType($2);
-                                                        $$ = createDerefNode($2);
-                                                    }
-            |   '&' ID                              {
-                                                        setType($2);
-                                                        $$ = createAddrNode($2);
-                                                    }
-            ;
 ArgList     :   ArgList ',' expr                    {   $$ = appendArgNode($1, $3); }
             |   expr                                {   $$ = $1; }
             |                                       {   $$ = NULL;  }
+            ;
+
+IDENTIFIERS :   ID                  { setType($1); $$ = $1; }
+            |   ID '[' expr ']'     { $$ = createArrayNode($1, NULL, $3); }
+            |   STAR ID             { $$ = createDerefNode($2); }
+            |   '&' ID              { $$ = createAddrNode($2); }
+            |   '(' expr  ')' '.' ID   { $$ = createTupleNode($2, $5); }
+            |   ID '.' ID  { $$ = createTupleNode($1, $3); }
             ;
         
 %%

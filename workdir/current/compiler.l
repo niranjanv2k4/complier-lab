@@ -69,6 +69,7 @@ letter     [a-zA-Z]
 "enddecl"       {   return ENDDECL; }
 "int"           {   return INT; }
 "str"           {   return STR; }
+"tuple"         {   return TUPLE;   }
 
 "main"          {   return MAIN;    }
 "return"        {   return RETURN;  }
@@ -78,7 +79,7 @@ letter     [a-zA-Z]
                 }
 
 [ \t\n]         {   }
-[(){},\[\]&]     {   return *yytext; }
+[(){},\[\]&.]     {   return *yytext; }
 .               {   }
 
 %%

@@ -73,7 +73,7 @@ int getAddr(FILE* output, struct ASTNode* node){
     }else{
         fprintf(output, "MOV R%d, %d\n", reg, node->Gentry->binding);
 
-        if(node->Gentry->size != 1){
+        if(node->Gentry->colSize != 0){
 
             if(node->ptr1){
                 int rowOffset = evaluate(node->ptr1, output);
@@ -98,6 +98,40 @@ int getAddr(FILE* output, struct ASTNode* node){
     return reg;
 }
 
+int getIdentifierAddr(FILE* output, struct ASTNode* root){
+
+    int addr;
+
+    switch(root->nodetype){
+        case NODE_DEREF:{
+            addr = getAddr(output, root->ptr1);
+            fprintf(output, "MOV R%d, [R%d]\n", addr, addr);
+            break;
+        }
+        case NODE_TUPLE:{
+            if(root->ptr1->nodetype == NODE_ID){
+                addr = getAddr(output, root->ptr1);
+                struct Fieldlist* temp = FLookup(root->ptr1->type->fields, root->ptr2->name);
+                fprintf(output, "ADD R%d, %d\n", addr, temp->fieldIndex);
+            }else{
+                addr = getIdentifierAddr(output, root->ptr1);
+                struct Fieldlist* temp = FLookup(root->ptr1->ptr1->type->fields, root->ptr2->name);
+                fprintf(output, "ADD R%d, %d\n", addr, temp->fieldIndex);
+            }
+            break;
+        }
+        case NODE_ADDR: {
+            addr = getAddr(output, root->ptr1);
+            break;
+        }
+        default: {
+            addr = getAddr(output, root);
+        }
+    }
+
+    return addr;
+}
+
 void writeToTerminal(FILE* output, int reg){
 
     int temp = getReg();
@@ -118,14 +152,7 @@ void writeToTerminal(FILE* output, int reg){
 
 void readFromTerminal(FILE* output, struct ASTNode* root){
     
-    int reg;
-    if(root->nodetype == NODE_DEREF){
-        reg = getAddr(output, root->ptr1);
-        fprintf(output, "MOV R%d, [R%d]\n", reg, reg);
-    }
-    else   
-        reg = getAddr(output, root);
-
+    int reg = getIdentifierAddr(output, root);
     int temp = getReg();
 
     fprintf(output, "MOV R%d, \"Read\"\nPUSH R%d\n", temp, temp);
@@ -159,12 +186,12 @@ int evaluate(struct ASTNode* root, FILE* output){
             }
             return reg;
         }
-        case NODE_ID:{
-
-            int reg = getAddr(output, root);
-            fprintf(output, "MOV R%d, [R%d]\n", reg, reg);
-            return reg;
-        
+        case NODE_ID:
+        case NODE_DEREF:
+        case NODE_TUPLE: {
+            int addr = getIdentifierAddr(output, root);
+            fprintf(output, "MOV R%d, [R%d]\n", addr,addr);
+            return addr;
         }
         case NODE_FUNCT:{
 
@@ -255,15 +282,7 @@ int evaluate(struct ASTNode* root, FILE* output){
             return res;
         }
         case NODE_ADDR: {
-            int res = getAddr(output, root->ptr1);
-            // fprintf(output, "MOV R%d, [R%d]\n", res, res);
-            return res;
-        }
-        case NODE_DEREF: {
-            int res = getAddr(output, root->ptr1);
-            fprintf(output, "MOV R%d, [R%d]\n", res, res);
-            fprintf(output, "MOV R%d, [R%d]\n", res, res);
-            return res;
+            return getIdentifierAddr(output, root->ptr1);
         }
     }
 
@@ -413,20 +432,6 @@ void generateRptUtlBlock(FILE* output, struct ASTNode* root){
 int codeGen(struct ASTNode* root, FILE* output){
     
     switch (root->nodetype){
-        case NODE_CONST:{
-            int reg = getReg();
-            if(TLookup("int") == root->type){
-                fprintf(output, "MOV R%d, %d\n", reg, root->value.intVal);
-            }else{
-                fprintf(output, "MOV R%d, %s\n", reg, root->value.strVal);
-            }
-            return reg;
-        }
-        case NODE_ID:{
-            int reg = getAddr(output, root);
-            fprintf(output, "MOV R%d, [R%d]\n", reg, reg);
-            return reg;
-        }
         case NODE_ADD:
         case NODE_SUB:
         case NODE_MUL:
@@ -450,16 +455,40 @@ int codeGen(struct ASTNode* root, FILE* output){
 
         case NODE_ASSIGN:{
 
-            int res = evaluate(root->ptr2, output);
+            if(root->ptr1->nodetype == NODE_ID && root->ptr1->type->fields != NULL && root->ptr2->nodetype == NODE_ID){
+                struct Fieldlist* list = root->ptr1->type->fields;
 
-            int addr;
+                int leftAddr = getAddr(output, root->ptr1);
+                int rightAddr = getAddr(output, root->ptr2);
 
-            if(root->ptr1->nodetype == NODE_DEREF){
-                addr = getAddr(output, root->ptr1->ptr1);
-                fprintf(output, "MOV R%d, [R%d]\n", addr, addr);
+                int temp1 = getReg(), temp2 = getReg(), size = getReg();
+                int start = getNewLabel(), end = getNewLabel();
+                
+                fprintf(output, "MOV R%d, %d\n", size, root->ptr1->Gentry->size);
+                fprintf(output, "MOV R%d, 0\n", temp1);
+                
+                fprintf(output, "L%d:\n", start);
+                fprintf(output, "MOV R%d, R%d\n",temp2, temp1);
+                fprintf(output, "LT R%d, R%d\n", temp2, size);
+                fprintf(output, "JZ R%d, L%d\n", temp2, end);
+                fprintf(output, "MOV [R%d], [R%d]\n", leftAddr, rightAddr);
+                fprintf(output, "ADD R%d, 1\n", leftAddr);
+                fprintf(output, "ADD R%d, 1\n", rightAddr);
+                fprintf(output, "ADD R%d, 1\n", temp1);
+                fprintf(output, "JMP L%d\n", start);
+                fprintf(output, "L%d:\n", end);
+
+                freeReg(leftAddr);
+                freeReg(rightAddr);
+                freeReg(temp1);
+                freeReg(temp2);
+                freeReg(size);
+
+                return -1;
             }
-            else   
-                addr = getAddr(output, root->ptr1);
+
+            int res = evaluate(root->ptr2, output);
+            int addr = getIdentifierAddr(output, root->ptr1);
             
             fprintf(output, "MOV [R%d], R%d\n", addr, res);
 

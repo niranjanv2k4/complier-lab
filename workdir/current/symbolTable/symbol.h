@@ -9,7 +9,8 @@ extern struct GSymbol* GST;
 extern struct LSymbol* LST;
 extern int currBinding;
 
-struct GSymbol* insertToGlobal(struct ASTNode* id, struct Typetable* type, int rowSize, int colSize, struct param* list, int nodetype);
+struct GSymbol* insertToGlobal(struct ASTNode* id, struct Typetable* type, int size, int rowSize, int colSize, struct param* list, int nodetype, bool isPointer);
+struct GSymbol* insertTupleToGST(struct ASTNode* id, struct param* list);
 struct GSymbol* GSTLookup(char* name);
 void printGST();
 
@@ -25,7 +26,7 @@ void validateFunct(struct Typetable* type, struct ASTNode* id, struct param* par
 struct LSymbol* addParamtoLST(struct param* list);
 
 /* Managing local variables*/
-struct LSymbol* createLST(struct ASTNode* id, struct Typetable* type);
+struct LSymbol* createLST(struct ASTNode* id, struct Typetable* type, bool sPointer);
 struct LSymbol* LSTLookup(char* name);
 void printLST(char* name);
 

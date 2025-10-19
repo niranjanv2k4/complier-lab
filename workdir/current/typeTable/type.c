@@ -67,7 +67,7 @@ struct Fieldlist *FInstall(struct Fieldlist *fieldList, char *name, struct Typet
         exit(1);
     }
 
-    int index = 1;
+    int index = 0;
     struct Fieldlist *temp = fieldList;
     if (temp) {
         while (temp->next) temp = temp->next;
@@ -98,4 +98,28 @@ void PrintTypeTable() {
         t = t->next;
     }
     printf("------------------------\n");
+}
+
+struct Typetable* TInstallTuple(struct ASTNode* id, struct param* list){
+    if(TLookup(id->name)!=NULL){
+        printf("Type '%s' already declared\n", id->name);
+        exit(1);
+    }
+    
+    if(list == NULL){
+        printf("Error: Atleast one field is required\n");
+        exit(1);
+    }
+
+    struct Fieldlist* fields = NULL;
+    struct param* temp = list;
+
+    int size = 0;
+    while(temp){
+        fields = FInstall(fields, temp->name, temp->type);
+        temp = temp->next;
+        size++;
+    }
+
+    return TInstall(id->name, size, fields);
 }

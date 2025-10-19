@@ -41,7 +41,8 @@ enum NodeType {
     NODE_FUNCT,
     NODE_ID,
     NODE_RET,
-    NODE_PTR
+    NODE_PTR,
+    NODE_TUPLE
 };
 
 

@@ -4,6 +4,7 @@
 #include "../main.h"
 #include "../constant.h"
 #include "../typeTable/type.h"
+#include "../symbolTable/symbol.h"
 
 struct ASTNode* createLeafNode(struct Typetable* type, char* varname, int val, char* str_val);
 struct ASTNode* createTreeNode(int nodetype, struct ASTNode* left, struct ASTNode* right);
@@ -20,4 +21,5 @@ struct ASTNode* appendArgNode(struct ASTNode* list, struct ASTNode* expr);
 struct ASTNode* createFunctNode(struct ASTNode* id, struct ASTNode* args);
 struct ASTNode* createRtnNode(struct ASTNode* rtn);
 
+struct ASTNode* createTupleNode(struct ASTNode* id, struct ASTNode* field);
 #endif

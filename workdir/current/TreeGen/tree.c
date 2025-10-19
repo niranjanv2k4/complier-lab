@@ -1,18 +1,10 @@
 #include "tree.h"
 
-
-// void isValid(struct ASTNode* id, int index){
-//     if(id->Gentry->size<=index){
-//         printf("Index out bound\n");
-//         exit(1);
-//     }
-// }
-
 bool isIntegerLike(struct Typetable* t) {
-    return t == TLookup("int");
+    return t == TLookup("int") || t == TLookup("int arr");
 }
 bool isStringLike(struct Typetable* t) {
-    return t == TLookup("str");
+    return t == TLookup("str") || t == TLookup("str arr");
 }
 bool isBoolLike(struct Typetable* t) {
     return t == TLookup("bool");
@@ -54,23 +46,23 @@ struct Typetable* resolveType(int nodetype, struct ASTNode* ptr1, struct ASTNode
         case NODE_OR:
             if((isBoolLike(leftType) && isBoolLike(rightType)))
                 return TLookup("bool");
-            printf("Type mistmatch in boolean operation\n");
+            printf("Type mistmatch in conditional operation\n");
             exit(1);
 
         case NODE_ASSIGN:
-            if(ptr1->nodetype == NODE_ID || ptr1->nodetype == NODE_DEREF){
-                if(leftType == rightType){
+            if(ptr1->nodetype == NODE_ID || ptr1->nodetype == NODE_DEREF || ptr1->nodetype == NODE_TUPLE){
+                if(strcmp(leftType->name, rightType->name) == 0){
                     return TLookup("void");
                 }
 
                 if(ptr1->nodetype == NODE_DEREF) {
-                    if(ptr1->ptr1->type == ptr2->type) {
+                    if(strcmp(ptr1->ptr1->type->name, ptr2->type->name) == 0) {
                         return TLookup("void");
                     }
                 }
 
                 if(ptr2->nodetype == NODE_ADDR) {
-                    if(leftType == ptr2->type) {
+                    if(strcmp(leftType->name, ptr2->type->name)==0) {
                         return TLookup("void");
                     }
                 }
@@ -87,7 +79,10 @@ struct Typetable* resolveType(int nodetype, struct ASTNode* ptr1, struct ASTNode
 }
 
 struct ASTNode* createDerefNode(struct ASTNode* id) {
-    if (id->type != TLookup("int ptr") && id->type != TLookup("str ptr")) {
+
+    setType(id);
+
+    if (!id->isPointer) {
         printf("Cannot dereference a non-pointer type\n");
         exit(1);
     }
@@ -97,12 +92,14 @@ struct ASTNode* createDerefNode(struct ASTNode* id) {
     node->nodetype = NODE_DEREF;
     node->ptr1 = id;
     node->ptr2 = NULL;
-    node->type = TLookup("int ptr") == id->type ? TLookup("int") : TLookup("str");
+    node->type = id->type;
 
     return node;
 }
 
 struct ASTNode* createAddrNode(struct ASTNode* id) {
+    setType(id);
+
     if (id->nodetype != NODE_ID) {
         printf("Cannot take address of non-variable type\n");
         exit(1);
@@ -114,7 +111,8 @@ struct ASTNode* createAddrNode(struct ASTNode* id) {
     node->ptr1 = id;
     node->ptr2 = NULL;
 
-    node->type = TLookup("int") == id->type ? TLookup("int ptr") : TLookup("str ptr");
+    node->type = id->type;
+    node->isPointer = true;
 
     return node;
 }
@@ -128,6 +126,8 @@ struct ASTNode* createTreeNode(int nodetype, struct ASTNode* ptr1, struct ASTNod
     node->nodetype = nodetype;
     node->ptr1 = ptr1;
     node->ptr2 = ptr2;
+
+    node->isPointer = false;
 
     node->type = resolveType(nodetype, ptr1, ptr2);
 
@@ -164,11 +164,15 @@ struct ASTNode* createLeafNode(struct Typetable* type, char* varname, int val, c
 
 struct ASTNode* createArrayNode(struct ASTNode* id, struct ASTNode* ptr1, struct ASTNode* ptr2){
 
-    if(id->Gentry->size==1){
+    setType(id);
+
+    if(id->type != TLookup("int arr") && id->type != TLookup("str arr")){
         printf("'%s' is not an array\n", id->name);
         exit(1);
     }
 
+    id->type = (id->type == TLookup("int arr")?TLookup("int"):TLookup("str"));
+    
     id->ptr1 = ptr1;
     id->ptr2 = ptr2;
 
@@ -233,5 +237,49 @@ struct ASTNode* createRtnNode(struct ASTNode* rtn){
     node->type = rtn->type;
     node->nodetype = NODE_RET;
 
+    return node;
+}
+
+
+struct ASTNode* createTupleNode(struct ASTNode* id, struct ASTNode* field){
+    if(field == NULL){
+        printf("Error: some field is required\n");
+        exit(1);
+    }
+
+    if(id->nodetype != NODE_ID && id->nodetype != NODE_DEREF){
+        printf("Error: Cannot dereference\n");
+        exit(1);
+    }
+
+    if(id->nodetype == NODE_ID){
+        setType(id);
+        if(id->isPointer){
+            printf("Error: '%s' is a pointer type\n", id->name);
+            exit(1);
+        }
+    }
+
+    struct Typetable* targetType = (id->nodetype == NODE_ID?id->type:id->ptr1->type);
+    if (targetType == NULL || targetType->fields == NULL) {
+        printf("Error: '%s' is not a tuple type\n", id->name);
+        exit(1);
+    }
+    
+    struct Fieldlist* temp = FLookup(targetType->fields, field->name);
+
+    if(temp == NULL){
+        printf("Error: No field named '%s' in '%s'\n", field->name, id->name);
+        exit(1);
+    }
+
+
+    struct ASTNode* node = malloc(sizeof(struct ASTNode));
+
+    node->type = temp->type;
+    node->nodetype = NODE_TUPLE;
+    node->ptr1 = id;
+    node->ptr2 = field;
+    
     return node;
 }
