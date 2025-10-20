@@ -25,6 +25,7 @@
     struct param* parameter;
     struct LSymbol* localSymbolTable;
     struct Arglist* Args;
+    struct Fieldlist* fieldlist;
     int type;
 }
 
@@ -50,6 +51,7 @@
 %type <node> Coderegion RtnStmt
 %type <node> IDENTIFIERS
 %type <parameter> Param ParamList
+%type <fieldlist> Field FieldList
 
 %type <node> ArgList;
 
@@ -82,7 +84,7 @@ GDecl       :   Type GidList EOL                {   }
             ;
 Type        :   INT                             {   current_type = TLookup("int");    }
             |   STR                             {   current_type = TLookup("str");    }
-            |   TUPLE ID '(' ParamList ')'      {   current_type = TInstallTuple($2, $4);   }
+            |   TUPLE ID '(' FieldList ')'      {   current_type = TInstallTuple($2, $4);   }
             ;
 GidList     :   GidList ',' Gid
             |   Gid
@@ -110,7 +112,7 @@ Fdef        :   INT ID '(' ParamList ')' '{' LDeclBlock Coderegion '}'      {
                                                                                 generateFunct(output, $2, $8);
                                                                             }
             ;
-            
+
 /* --------------------------------------------------------------------------------- */
 
 MainBlock   :   INT MAIN '('')' '{' LDeclBlock Coderegion '}'   {   
@@ -137,6 +139,17 @@ Param       :   INT ID                  {   $$ = createParam(TLookup("int"), $2)
 
 /* --------------------------------------------------------------------------------- */
 
+FieldList   :   FieldList ',' Field     {   $$ = appendField($1, $3); }
+            |   Field                   {   $$ = $1; }
+            |                           {   $$ = NULL; }
+            ;
+
+Field       :   INT ID                  {   $$ = createField(TLookup("int"), $2);   }
+            |   STR ID                  {   $$ = createField(TLookup("str"), $2);   }
+            ;
+
+/* ------------------------------------------------------------------------------------ */
+
 LDeclBlock  :   DECL LDeclList ENDDECL                          {  }
             |
             |   DECL ENDDECL
@@ -147,8 +160,8 @@ LDeclList   :   LDeclList LDecl                                 {  }
 LDecl       :   Type IdList  EOL                                {  }
             ;
 IdList      :   IdList ',' ID                                   {   LST = createLST($3, current_type, false);   }
-            |   ID                                              {   LST = createLST($1, current_type, true);   }
-            |   IdList ',' STAR ID                              {   LST = createLST($4, current_type, false);   }
+            |   ID                                              {   LST = createLST($1, current_type, false);   }
+            |   IdList ',' STAR ID                              {   LST = createLST($4, current_type, true);   }
             |   STAR ID                                         {   LST = createLST($2, current_type, true);    }
             ;   
 

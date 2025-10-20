@@ -143,9 +143,10 @@ union YYSTYPE
     struct param* parameter;
     struct LSymbol* localSymbolTable;
     struct Arglist* Args;
+    struct Fieldlist* fieldlist;
     int type;
 
-#line 149 "y.tab.h"
+#line 150 "y.tab.h"
 
 };
 typedef union YYSTYPE YYSTYPE;

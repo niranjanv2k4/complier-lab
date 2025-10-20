@@ -25,6 +25,10 @@ struct param* appendParam(struct param* head, struct param* node);
 void validateFunct(struct Typetable* type, struct ASTNode* id, struct param* paramlist, struct ASTNode* return_val);
 struct LSymbol* addParamtoLST(struct param* list);
 
+/* field functions */
+struct Fieldlist* createField(struct Typetable* type, struct ASTNode* id);
+struct Fieldlist* appendField(struct Fieldlist* head, struct Fieldlist* node);
+
 /* Managing local variables*/
 struct LSymbol* createLST(struct ASTNode* id, struct Typetable* type, bool sPointer);
 struct LSymbol* LSTLookup(char* name);

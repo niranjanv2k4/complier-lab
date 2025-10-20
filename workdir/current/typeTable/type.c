@@ -1,6 +1,7 @@
 #include "type.h"
 
 struct Typetable *TypeTable = NULL;
+int Fieldindex = 0;
 
 static struct Typetable *newType(char *name, int size, struct Fieldlist *fields) {
     struct Typetable *t = (struct Typetable *)malloc(sizeof(struct Typetable));
@@ -100,26 +101,54 @@ void PrintTypeTable() {
     printf("------------------------\n");
 }
 
-struct Typetable* TInstallTuple(struct ASTNode* id, struct param* list){
+struct Typetable* TInstallTuple(struct ASTNode* id, struct Fieldlist* fields){
     if(TLookup(id->name)!=NULL){
         printf("Type '%s' already declared\n", id->name);
         exit(1);
     }
     
-    if(list == NULL){
+    if(fields == NULL){
         printf("Error: Atleast one field is required\n");
         exit(1);
     }
 
-    struct Fieldlist* fields = NULL;
-    struct param* temp = list;
+    struct Fieldlist* temp = fields;
 
     int size = 0;
     while(temp){
-        fields = FInstall(fields, temp->name, temp->type);
         temp = temp->next;
         size++;
     }
 
+    Fieldindex = 0;
     return TInstall(id->name, size, fields);
+}
+
+struct Fieldlist* createField(struct Typetable* type, struct ASTNode* id){
+    struct Fieldlist* node = malloc(sizeof(struct Fieldlist));
+
+    node->name = strdup(id->name);
+    node->fieldIndex = Fieldindex++;
+    node->type = type;
+    node->next = NULL;
+
+    return node;
+}
+struct Fieldlist* appendField(struct Fieldlist* head, struct Fieldlist* node){
+
+    if(!head)
+        return node;
+
+    struct Fieldlist* temp = head;
+
+    while(temp->next){
+        if(strcmp(temp->name, node->name) == 0){
+            printf("Error: '%s' already exits in the tuple\n", temp->name);
+            exit(1);
+        }
+        temp = temp->next;
+    }
+
+    temp->next = node;
+    return head;
 }

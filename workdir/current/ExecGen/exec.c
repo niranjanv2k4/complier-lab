@@ -61,7 +61,6 @@ int getNewLabel(){
     return newLabel++;
 }
 
-
 int getAddr(FILE* output, struct ASTNode* node){
 
     int reg = getReg();
@@ -454,17 +453,19 @@ int codeGen(struct ASTNode* root, FILE* output){
         }
 
         case NODE_ASSIGN:{
+            struct ASTNode* left = root->ptr1;
+            struct ASTNode* right = root->ptr2;
 
-            if(root->ptr1->nodetype == NODE_ID && root->ptr1->type->fields != NULL && root->ptr2->nodetype == NODE_ID){
-                struct Fieldlist* list = root->ptr1->type->fields;
+            if(left->nodetype == NODE_ID && left->type->fields != NULL && right->nodetype == NODE_ID){
+                struct Fieldlist* list = left->type->fields;
 
-                int leftAddr = getAddr(output, root->ptr1);
-                int rightAddr = getAddr(output, root->ptr2);
+                int leftAddr = getAddr(output, left);
+                int rightAddr = getAddr(output, right);
 
                 int temp1 = getReg(), temp2 = getReg(), size = getReg();
                 int start = getNewLabel(), end = getNewLabel();
                 
-                fprintf(output, "MOV R%d, %d\n", size, root->ptr1->Gentry->size);
+                fprintf(output, "MOV R%d, %d\n", size, left->type->size);
                 fprintf(output, "MOV R%d, 0\n", temp1);
                 
                 fprintf(output, "L%d:\n", start);
@@ -486,7 +487,38 @@ int codeGen(struct ASTNode* root, FILE* output){
 
                 return -1;
             }
+            if(left->nodetype == NODE_DEREF && right->nodetype == NODE_DEREF && left->ptr1->type->fields!=NULL && right->ptr1->type->fields!=NULL){
+                struct Fieldlist* list = left->ptr1->type->fields;
 
+                int leftAddr = getIdentifierAddr(output, left);
+                int rightAddr = getIdentifierAddr(output, right);
+
+                int temp1 = getReg(), temp2 = getReg(), size = getReg();
+                int start = getNewLabel(), end = getNewLabel();
+                
+                fprintf(output, "MOV R%d, %d\n", size, left->ptr1->type->size);
+                fprintf(output, "MOV R%d, 0\n", temp1);
+                
+                fprintf(output, "L%d:\n", start);
+                fprintf(output, "MOV R%d, R%d\n",temp2, temp1);
+                fprintf(output, "LT R%d, R%d\n", temp2, size);
+                fprintf(output, "JZ R%d, L%d\n", temp2, end);
+                fprintf(output, "MOV [R%d], [R%d]\n", leftAddr, rightAddr);
+                fprintf(output, "ADD R%d, 1\n", leftAddr);
+                fprintf(output, "ADD R%d, 1\n", rightAddr);
+                fprintf(output, "ADD R%d, 1\n", temp1);
+                fprintf(output, "JMP L%d\n", start);
+                fprintf(output, "L%d:\n", end);
+
+                freeReg(leftAddr);
+                freeReg(rightAddr);
+                freeReg(temp1);
+                freeReg(temp2);
+                freeReg(size);
+
+                return -1;
+            }
+            
             int res = evaluate(root->ptr2, output);
             int addr = getIdentifierAddr(output, root->ptr1);
             
@@ -570,7 +602,15 @@ void generateFunct(FILE* output, struct ASTNode* id, struct ASTNode* code){
         fprintf(output, "MOV BP, SP\n");
 
         while(tempLST){
-            fprintf(output, "PUSH R0\n");
+            if(tempLST->type->fields != NULL && !tempLST->isPointer){
+                struct Fieldlist* temp = tempLST->type->fields;
+                while(temp){
+                    fprintf(output, "PUSH R0\n");
+                    temp = temp->next;
+                }
+            }else{
+                fprintf(output, "PUSH R0\n");
+            }
             tempLST = tempLST->next;
         }
         isMain = true;
@@ -597,7 +637,15 @@ void generateFunct(FILE* output, struct ASTNode* id, struct ASTNode* code){
     }
 
     while(tempLST){
-        fprintf(output, "PUSH R0\n");
+        if(tempLST->type->fields != NULL  && !tempLST->isPointer){
+            struct Fieldlist* temp = tempLST->type->fields;
+            while(temp){
+                fprintf(output, "PUSH R0\n");
+                temp = temp->next;
+            }
+        }else{
+            fprintf(output, "PUSH R0\n");
+        }
         tempLST = tempLST->next;
     }
 

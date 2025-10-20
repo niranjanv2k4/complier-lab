@@ -31,6 +31,5 @@ struct Typetable *TInstall(char *name, int size, struct Fieldlist *fields);
 struct Fieldlist *FLookup(struct Fieldlist *fieldList, char *name);
 struct Fieldlist *FInstall(struct Fieldlist *fieldList, char *name, struct Typetable *type);
 void PrintTypeTable();
-struct Typetable* TInstallTuple(struct ASTNode* id, struct param* list);
-
+struct Typetable* TInstallTuple(struct ASTNode* id, struct Fieldlist* fields);
 #endif

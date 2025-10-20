@@ -35,6 +35,8 @@ struct GSymbol* insertToGlobal(struct ASTNode* id, struct Typetable* type, int s
     node->name = strdup(id->name);
     
     node->size = (colSize*colSize != 0)?colSize*rowSize:type->size;
+    node->size = isPointer?1:node->size;
+
     node->type = type;
 
     node->rowSize = rowSize;
@@ -48,7 +50,7 @@ struct GSymbol* insertToGlobal(struct ASTNode* id, struct Typetable* type, int s
         node->flabel = functionLabel++;
     
     }else{
-        node->binding = getMem(node->size);
+        node->binding = getMem(isPointer?1:node->size);
         node->paramlist = NULL;
         node->flabel = -1;
     }
@@ -98,8 +100,7 @@ struct LSymbol* addParamtoLST(struct param* id) {
 struct param* createParam(struct Typetable* type, struct ASTNode* id){
     struct param* node = malloc(sizeof(struct param));
 
-    node->name = malloc(strlen(id->name)+1);
-    strcpy(node->name, id->name);
+    node->name = strdup(id->name);
 
     node->type = type;
     node->next = NULL;
@@ -238,7 +239,8 @@ void validateFunct(struct Typetable* type, struct ASTNode* id, struct param* par
     while(tempLST){
         if(relativeAddr == -2)
             relativeAddr = 1;
-        tempLST->binding = relativeAddr++;
+        tempLST->binding = relativeAddr;
+        relativeAddr += tempLST->isPointer?1:tempLST->type->size;
         tempLST=tempLST->next;
     }
 }
@@ -253,7 +255,8 @@ void validateMain(struct ASTNode* node){
     int relativeAddr = 1;
 
     while(tempLST){
-        tempLST->binding = relativeAddr++;
+        tempLST->binding = relativeAddr;
+        relativeAddr += tempLST->isPointer?1:tempLST->type->size;
         tempLST=tempLST->next;
     }
 }
@@ -263,10 +266,23 @@ void validateMain(struct ASTNode* node){
 void printLST(char* name){
     struct LSymbol* temp = LST;
     printf("FUNCTION - %s\n", name);
-    printf("name\ttype\tbinding\n");
+    printf("name\ttype\tbinding\tPointer\n");
 
     while(temp){
-        printf("%s\t%s\t%d\n", temp->name, temp->type->name, temp->binding);
+        printf("%s\t%s\t%d\t%s", temp->name, temp->type->name, temp->binding, temp->isPointer?"Yes":"No");
+        if(temp->type->fields){
+
+            printf("\tFields: ");
+            struct Fieldlist* list = temp->type->fields;
+
+            while(list){
+                printf("%s %s %d", list->type->name, list->name, list->fieldIndex);
+                if(list->next)
+                    printf(", ");
+                list = list->next;
+            }
+        }
+        printf("\n");
         temp = temp->next;
     }
     printf("\n");
@@ -279,7 +295,7 @@ void printGST(){
 
     while(temp){
 
-        printf("%s\t%s\t%d\t%d\t%d\t", temp->name, temp->type->name, temp->size, temp->binding, temp->flabel);
+        printf("%s\t%s\t%d\t%d\t%d\t%s\t", temp->name, temp->type->name, temp->size, temp->binding, temp->flabel, temp->isPointer?"Yes":"No");
 
         if(temp->flabel!=-1){
 

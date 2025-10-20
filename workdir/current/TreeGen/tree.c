@@ -50,29 +50,38 @@ struct Typetable* resolveType(int nodetype, struct ASTNode* ptr1, struct ASTNode
             exit(1);
 
         case NODE_ASSIGN:
-            if(ptr1->nodetype == NODE_ID || ptr1->nodetype == NODE_DEREF || ptr1->nodetype == NODE_TUPLE){
-                if(strcmp(leftType->name, rightType->name) == 0){
+            if(ptr1->nodetype == NODE_ID || ptr1->nodetype == NODE_TUPLE || ptr2->nodetype == NODE_TUPLE){
+                if(strcmp(leftType->name, rightType->name) == 0 && ptr1->isPointer==ptr2->isPointer){
                     return TLookup("void");
                 }
-
-                if(ptr1->nodetype == NODE_DEREF) {
-                    if(strcmp(ptr1->ptr1->type->name, ptr2->type->name) == 0) {
-                        return TLookup("void");
-                    }
-                }
-
-                if(ptr2->nodetype == NODE_ADDR) {
-                    if(strcmp(leftType->name, ptr2->type->name)==0) {
-                        return TLookup("void");
-                    }
+                printf("Type mismatch in assignment\n");
+                exit(1);
+            }else if(ptr1->nodetype == NODE_DEREF && ptr2->nodetype == NODE_DEREF){
+                if(strcmp(ptr1->ptr1->type->name, ptr2->ptr1->type->name) == 0){
+                    return TLookup("void");
                 }
                 printf("Type mismatch in assignment\n");
-            }else{
-                printf("Left side is not an identifier\n");
+                exit(1);
+            }else if(ptr1->nodetype == NODE_DEREF){
+                if(strcmp(ptr1->type->name, ptr2->type->name) == 0 && !ptr2->isPointer){
+                    return TLookup("void");
+                }
+                printf("Type mismatch in assignment\n");
+                exit(1);
+            }else if(ptr2->nodetype == NODE_DEREF){
+                if(strcmp(ptr2->type->name, ptr1->type->name) == 0 && !ptr1->isPointer){
+                    return TLookup("void");
+                }
+                printf("Type mismatch in assignment\n");
+                exit(1);
+            }else if(ptr2->nodetype == NODE_ADDR && strcmp(leftType->name, rightType->name)==0 && ptr1->isPointer){
+                    return TLookup("void");
             }
-            exit(1);
+            else{
+                printf("Type mismatch in assignment\n");
+                exit(1);
+            }
             
-
         default:
             return TLookup("void");
     }

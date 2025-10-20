@@ -1,65 +1,71 @@
+
+int main(){
 decl
-    tuple student(int id, str name, int marks) s, *p1, *p2;
+    int a, b;
+    str s1, s2;
+    tuple record(int id, str name) t1, t2, *pt1, *pt2;
+    int* p1, *p2;
+    str* ps1, *ps2;
 enddecl
-
-int main() {
 begin
-    p1 = &s;
-    p2 = &s;
+    write("read int");
+    read(a);
+    write("int via b");
+    b = a;
+    write(b);
 
-    write("Read 'p1' : ");
-    read((*p1).id);
-    read((*p1).name);
-    read((*p1).marks);
+    write("read str");
+    read(s1);
+    write("str via s2");
+    s2 = s1;
+    write(s2);
 
-    write("Print 's' : ");
-    write(s.id);
-    write(s.name);
-    write(s.marks);
-    write("Print 'p1' : ");
-    write((*p1).id);
-    write((*p1).name);
-    write((*p1).marks);
-    write("Print 'p2' : ");
-    write((*p2).id);
-    write((*p2).name);
-    write((*p2).marks);
+    write("read tup");
+    read(t1.id);
+    read(t1.name);
+    write("tup via t2");
+    t2 = t1;
+    write(t2.id);
+    write(t2.name);
 
-    write("Read 'p2' : ");
-    read((*p2).id);
-    read((*p2).name);
-    read((*p2).marks);
+    write("read ptr");
+    p1 = &a;
+    write("int via *p");
+    read(*p1);
+    write(a);
 
-    write("Print 's' : ");
-    write(s.id);
-    write(s.name);
-    write(s.marks);
-    write("Print 'p1' : ");
-    write((*p1).id);
-    write((*p1).name);
-    write((*p1).marks);
-    write("Print 'p2' : ");
-    write((*p2).id);
-    write((*p2).name);
-    write((*p2).marks);
+    write("read sptr");
+    ps1 = &s1;
+    write("str via *ps");
+    read(*ps1);
+    write(s1);
 
-    write("Read 's' : ");
-    read(s.id);
-    read(s.name);
-    read(s.marks);
-    write("Print 's' : ");
-    write(s.id);
-    write(s.name);
-    write(s.marks);
-    write("Print 'p1' : ");
-    write((*p1).id);
-    write((*p1).name);
-    write((*p1).marks);
-    write("Print 'p2' : ");
-    write((*p2).id);
-    write((*p2).name);
-    write((*p2).marks);
+    write("read tptr");
+    pt1 = &t1;
+    write("tup via *pt");
+    read((*pt1).id);
+    read((*pt1).name);
+    write(t1.id);
+    write(t1.name);
 
+    write("p2=p1");
+    p2 = p1;
+    read(*p2);
+    write(a);
+
+    write("ps2=ps1");
+    ps2 = ps1;
+    read(*ps2);
+    write(s1);
+
+    write("pt2=pt1");
+    pt2 = pt1;
+    read((*pt2).id);
+    read((*pt2).name);
+    write(t1.id);
+    write(t1.name);
+
+    write("end");
     return 0;
 end
 }
