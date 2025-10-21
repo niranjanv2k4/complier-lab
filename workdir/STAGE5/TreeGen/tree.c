@@ -15,9 +15,30 @@ struct Typetable* resolveType(int nodetype, struct ASTNode* ptr1, struct ASTNode
     struct Typetable* leftType = ptr1->type;
 
     if(!ptr2)
-        return TLookup("void");
+        switch(nodetype){
+            case NODE_READ:
+            case NODE_WRITE:
+                if(ptr1->nodetype != NODE_FUNCT && (ptr1->Gentry && ptr1->Gentry->flabel != -1)){
+                    printf("Error: Type mismatch\n");
+                    exit(1);
+                }
+                if(ptr1->type->fields != NULL){
+                    printf("Error: No fields\n");
+                    exit(1);
+                }
+                return TLookup("void");
+        }
 
     struct Typetable* rightType = ptr2->type;
+
+    if(ptr1->nodetype != NODE_FUNCT && (ptr1->Gentry && ptr1->Gentry->flabel != -1)){
+        printf("Error: Invalid use of function\n");
+        exit(1);
+    }
+    if(ptr2->nodetype != NODE_FUNCT && (ptr2->Gentry && ptr2->Gentry->flabel != -1)){
+        printf("Error: Invalid use of function\n");
+        exit(1);
+    }
 
     switch(nodetype) {
         case NODE_ADD:
@@ -82,8 +103,17 @@ struct Typetable* resolveType(int nodetype, struct ASTNode* ptr1, struct ASTNode
                 exit(1);
             }
             
-        default:
+        default: {
+            if(ptr1->nodetype != NODE_FUNCT && (ptr1->Gentry && ptr1->Gentry->flabel != -1)){
+                printf("Error: Assignment to a function\n");
+                exit(1);
+            }
+            if(ptr2->nodetype != NODE_FUNCT && (ptr2->Gentry && ptr2->Gentry->flabel != -1)){
+                printf("Error: Assignment to a function\n");
+                exit(1);
+            }
             return TLookup("void");
+        }
     }
 }
 
@@ -155,6 +185,7 @@ struct ASTNode* createLeafNode(struct Typetable* type, char* varname, int val, c
     node->ptr3 = NULL;
     node->Gentry = NULL;
     node->Lentry = NULL;
+    node->isPointer = false;
 
     node->name = varname;
     node->nodetype = varname?NODE_ID:NODE_CONST;
@@ -206,6 +237,8 @@ struct ASTNode* appendArgNode(struct ASTNode* list, struct ASTNode* expr){
 }
 
 struct ASTNode* createFunctNode(struct ASTNode* id, struct ASTNode* arglist){
+    
+    setType(id);
 
     if(id->Gentry->flabel == -1){
         printf("'%s' is not a function\n", id->name);
@@ -215,7 +248,7 @@ struct ASTNode* createFunctNode(struct ASTNode* id, struct ASTNode* arglist){
     struct ASTNode* passed = arglist;
 
     while(declared && passed){
-        if(declared->type != passed->type){
+        if(declared->type != passed->type || declared->isPointer != passed->isPointer){
             printf("conflicting type for '%s'\n", declared->name);
             exit(1);
         }

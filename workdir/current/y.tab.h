@@ -81,13 +81,14 @@ extern int yydebug;
     ENDDECL = 287,
     INT = 288,
     STR = 289,
-    MAIN = 290,
-    RETURN = 291,
-    NUM = 292,
-    ID = 293,
-    STR_LITERAL = 294,
-    OR = 295,
-    AND = 296
+    TUPLE = 290,
+    MAIN = 291,
+    RETURN = 292,
+    NUM = 293,
+    ID = 294,
+    STR_LITERAL = 295,
+    OR = 296,
+    AND = 297
   };
 #endif
 /* Tokens.  */
@@ -123,27 +124,29 @@ extern int yydebug;
 #define ENDDECL 287
 #define INT 288
 #define STR 289
-#define MAIN 290
-#define RETURN 291
-#define NUM 292
-#define ID 293
-#define STR_LITERAL 294
-#define OR 295
-#define AND 296
+#define TUPLE 290
+#define MAIN 291
+#define RETURN 292
+#define NUM 293
+#define ID 294
+#define STR_LITERAL 295
+#define OR 296
+#define AND 297
 
 /* Value type.  */
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 union YYSTYPE
 {
-#line 27 "compiler.y"
+#line 23 "compiler.y"
 
     struct ASTNode* node;
     struct param* parameter;
     struct LSymbol* localSymbolTable;
     struct Arglist* Args;
+    struct Fieldlist* fieldlist;
     int type;
 
-#line 147 "y.tab.h"
+#line 150 "y.tab.h"
 
 };
 typedef union YYSTYPE YYSTYPE;

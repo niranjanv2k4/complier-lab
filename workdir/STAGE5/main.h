@@ -13,7 +13,6 @@ union Constant{
     char* strVal;
 };
 
-
 struct GSymbol{
     char* name;
     struct Typetable *type; 
@@ -32,6 +31,7 @@ struct GSymbol{
 
 struct param{
     char* name;
+    bool isPointer;
     struct Typetable *type; 
     struct param* next;
 };

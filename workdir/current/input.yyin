@@ -1,60 +1,71 @@
 
-
-type
-  node
-  {
-    int d;
-    int s;
-    int t;
-  }
-endtype
-
+int main(){
 decl
-  node y,z,gcd(int a,int b);
+    int a, b;
+    str s1, s2;
+    tuple record(int id, str name) t1, t2, *pt1, *pt2;
+    int* p1, *p2;
+    str* ps1, *ps2;
 enddecl
-
-node gcd(int a,int b)
-{
-  decl
-    int q,r,temp;
-  enddecl
-
-  begin
-    if(b==0) then
-      y.d = a;
-      y.s = 1;
-      y.t = 0;
-    else
-      q = a/b;
-      r = a%b;
-      z = gcd(b,r);
-      temp = z.s;
-      y.s = z.t;
-      y.t = temp - (q*z.t);
-    endif;
-
-  return y;
-  end
-}
-
-int main()
-{
-  decl
-    node res;
-    int a,b,c;
-  enddecl
-
-  begin
-    c = initialize();
-    y = alloc();
+begin
+    write("read int");
     read(a);
-    read(b);
-    res = gcd(a,b);
-    write(res.d);
-    write(res.s);
-    write(res.t);
+    write("int via b");
+    b = a;
+    write(b);
 
-  return 0;
-  end
+    write("read str");
+    read(s1);
+    write("str via s2");
+    s2 = s1;
+    write(s2);
+
+    write("read tup");
+    read(t1.id);
+    read(t1.name);
+    write("tup via t2");
+    t2 = t1;
+    write(t2.id);
+    write(t2.name);
+
+    write("read ptr");
+    p1 = &a;
+    write("int via *p");
+    read(*p1);
+    write(a);
+
+    write("read sptr");
+    ps1 = &s1;
+    write("str via *ps");
+    read(*ps1);
+    write(s1);
+
+    write("read tptr");
+    pt1 = &t1;
+    write("tup via *pt");
+    read((*pt1).id);
+    read((*pt1).name);
+    write(t1.id);
+    write(t1.name);
+
+    write("p2=p1");
+    p2 = p1;
+    read(*p2);
+    write(a);
+
+    write("ps2=ps1");
+    ps2 = ps1;
+    read(*ps2);
+    write(s1);
+
+    write("pt2=pt1");
+    pt2 = pt1;
+    read((*pt2).id);
+    read((*pt2).name);
+    write(t1.id);
+    write(t1.name);
+
+    write("end");
+    return 0;
+end
 }
-
