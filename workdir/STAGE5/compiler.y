@@ -79,12 +79,12 @@ program     :   GDeclBlock FDefBlock MainBlock  {   exitProg(output);printGST();
             |   MainBlock                       {   exitProg(output);printGST();  }
             ;
 
-GDeclBlock  :   DECL GDeclList ENDDECL          {   }
+GDeclBlock  :   DECL GDeclList ENDDECL          {    }
             |   DECL ENDDECL                    {   }
             ;
 GDeclList   :   GDeclList GDecl
             |   GDecl
-GDecl       :   Type GidList EOL                {   }
+GDecl       :   Type GidList EOL                {  }
             ;
 Type        :   INT                             {   current_type = TLookup("int");          isTuple = false;    }
             |   STR                             {   current_type = TLookup("str");          isTuple = false;    }
@@ -107,6 +107,7 @@ Gid         :   ID                              {   GST = insertToGlobal($1, cur
                                                         printf("Error: Cannot declare function of tuples\n");
                                                         exit(1);
                                                     }
+
                                                     GST = insertToGlobal($1, current_type, 0, 0, 0, $3, NODE_FUNCT,false);  
                                                     clearLST();  
                                                 }
@@ -119,14 +120,14 @@ FDefBlock   :   FDefBlock Fdef                  {      }
 Fdef        :   INT ID '(' ParamList ')' '{' LDeclBlock Coderegion '}'      {   
                                                                                 setHeader(output);  
                                                                                 validateFunct(TLookup("int"), $2, $4, $8); 
-                                                                                printLST($2->name);
+                                                                                //printLST($2->name);
                                                                                 generateFunct(output, $2, $8);
                                                                                 clearLST();  
                                                                             }
             |   STR ID '(' ParamList ')' '{' LDeclBlock Coderegion '}'      {   
                                                                                 setHeader(output);  
+                                                                                //printLST($2->name);
                                                                                 validateFunct(TLookup("str"), $2, $4, $8);    
-                                                                                printLST($2->name);
                                                                                 generateFunct(output, $2, $8);
                                                                                 clearLST();  
                                                                             }
@@ -136,8 +137,8 @@ Fdef        :   INT ID '(' ParamList ')' '{' LDeclBlock Coderegion '}'      {
 
 MainBlock   :   INT MAIN '('')' '{' LDeclBlock Coderegion '}'               {   
                                                                                 setHeader(output);  
-                                                                                validateMain($7);
                                                                                 printLST("MAIN");
+                                                                                validateMain($7);
                                                                                 generateFunct(output, NULL, $7);
                                                                                 clearLST();
                                                                             }

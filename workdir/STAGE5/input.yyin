@@ -1,0 +1,101 @@
+decl
+    int a, b, tempInt;
+    str s1, s2, tempStr;
+    tuple record(int id, str name) t1, t2, tempTup;
+    int swapInt(int *x, int *y), swapStr(str *x, str *y), swapTup(record *t1, record *t2);
+    int printInt(int x), printStr(str x), printTup(record t);
+enddecl
+
+int printInt(int x){
+    begin
+        write(x);
+        
+        return 0;
+    end
+}
+
+int printStr(str x){
+    begin
+        write(x);
+        return 0;
+    end
+}
+
+int printTup(record t){
+    begin
+        write(t.id);
+        write(t.name);
+        return 0;
+    end
+}
+
+int swapInt(int *x, int *y){
+    begin
+        tempInt = *x;
+        *x = *y;
+        *y = tempInt;
+        return 0;
+    end
+}
+
+int swapStr(str *x, str *y){
+    begin
+        tempStr = *x;
+        *x = *y;
+        *y = tempStr;
+        return 0;
+    end
+}
+
+int swapTup(record *t1, record *t2){
+    begin
+        tempTup = *t1;
+        *t1 = *t2;
+        *t2 = tempTup;
+        return 0;
+    end
+}
+
+int main(){
+    decl
+        int temp;
+    enddecl
+    begin
+    write("ENTER INT");
+        read(a);
+        read(b);
+        write("SWAPPING INT : ");
+        temp = printInt(a);
+        temp = printInt(b);
+        temp = swapInt(&a, &b);
+        write("SWAPPED INT : ");
+        temp = printInt(a);
+        temp = printInt(b);
+
+    write("ENTER STR");
+        read(s1);
+        read(s2);
+        write("SWAPPING STR : ");
+        temp = printStr(s1);
+        temp = printStr(s2);
+        write("SWAPPED STR : ");
+        temp = swapStr(&s1, &s2);
+        temp = printStr(s1);
+        temp = printStr(s2);
+
+    write("ENTER TUP");
+        read(t1.id);
+        read(t1.name);
+        read(t2.id);
+        read(t2.name);
+        write("SWAPPING TUP : ");
+        temp = printTup(t1);
+        temp = printTup(t2);
+        temp = swapTup(&t1, &t2);
+        write("SWAPPED TUP : ");
+        temp = printTup(t1);
+        temp = printTup(t2);
+
+        return 0;
+    end
+}
