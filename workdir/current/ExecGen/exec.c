@@ -6,6 +6,9 @@ int evaluate(struct ASTNode* root, FILE* output);
 int codeGen(struct ASTNode* root, FILE* output);
 
 
+
+
+
 /**/
 
 static uint32_t used = 0;
@@ -206,19 +209,46 @@ int evaluate(struct ASTNode* root, FILE* output){
             /* pushing arguments */
             struct ASTNode* tempArglist = root->ptr1->arglist;
             while(tempArglist){
-                int reg = evaluate(tempArglist, output);
-                fprintf(output, "PUSH R%d\n", reg);
-                freeReg(reg);
+                if(tempArglist->type->fields == NULL){
+                    int reg = evaluate(tempArglist, output);
+                    fprintf(output, "PUSH R%d\n", reg);
+                    freeReg(reg);
+                }else{
+                    if(tempArglist->isPointer){
+                        int addr = getAddr(output, tempArglist->ptr1);
+                        fprintf(output, "PUSH R%d\n", addr);
+                        freeReg(addr);
+                    }else{
+                        struct Fieldlist* temp = tempArglist->type->fields;
+                        int addr = getReg();
+                        while(temp){
+                            fprintf(output, "MOV R%d, %d\n", addr, tempArglist->Gentry->binding);
+                            fprintf(output, "ADD R%d, %d\n", addr, temp->fieldIndex);
+                            fprintf(output, "MOV R%d, [R%d]\n", addr, addr);
+                            fprintf(output, "PUSH R%d\n", addr);
+                            temp = temp->next;
+                        }
+                        freeReg(addr);
+                    }
+                }
                 tempArglist= tempArglist->arglist;
             }
 
             /* space for return value */
-            fprintf(output, "PUSH R%d\n", res);
+            if(root->ptr1->type->fields == NULL || root->ptr1->isPointer){
+                fprintf(output, "PUSH R%d\n", res);
+                fprintf(output, "CALL __F%d\n", root->ptr1->Gentry->flabel);
 
-            fprintf(output, "CALL __F%d\n", root->ptr1->Gentry->flabel);
+                /* taking the return value */
+                fprintf(output, "POP R%d\nBRKP\n", res);
+            }else{
+                
+                /* CASE FOR RETURNING TUPLES HAVE TO PUSH SPACES REQUIRED FOR ALL VALUES IN TUPLE   */
+                struct Fieldlist* temp = root->ptr1->type->fields;
 
-            /* taking the return value */
-            fprintf(output, "POP R%d\nBRKP\n", res);
+
+            }
+
 
             int temp = getReg();
             tempArglist = root->ptr1->arglist;
@@ -456,39 +486,8 @@ int codeGen(struct ASTNode* root, FILE* output){
             struct ASTNode* left = root->ptr1;
             struct ASTNode* right = root->ptr2;
 
-            if(left->nodetype == NODE_ID && left->type->fields != NULL && right->nodetype == NODE_ID){
+            if(left->type->fields != NULL && !left->isPointer){
                 struct Fieldlist* list = left->type->fields;
-
-                int leftAddr = getAddr(output, left);
-                int rightAddr = getAddr(output, right);
-
-                int temp1 = getReg(), temp2 = getReg(), size = getReg();
-                int start = getNewLabel(), end = getNewLabel();
-                
-                fprintf(output, "MOV R%d, %d\n", size, left->type->size);
-                fprintf(output, "MOV R%d, 0\n", temp1);
-                
-                fprintf(output, "L%d:\n", start);
-                fprintf(output, "MOV R%d, R%d\n",temp2, temp1);
-                fprintf(output, "LT R%d, R%d\n", temp2, size);
-                fprintf(output, "JZ R%d, L%d\n", temp2, end);
-                fprintf(output, "MOV [R%d], [R%d]\n", leftAddr, rightAddr);
-                fprintf(output, "ADD R%d, 1\n", leftAddr);
-                fprintf(output, "ADD R%d, 1\n", rightAddr);
-                fprintf(output, "ADD R%d, 1\n", temp1);
-                fprintf(output, "JMP L%d\n", start);
-                fprintf(output, "L%d:\n", end);
-
-                freeReg(leftAddr);
-                freeReg(rightAddr);
-                freeReg(temp1);
-                freeReg(temp2);
-                freeReg(size);
-
-                return -1;
-            }
-            if(left->nodetype == NODE_DEREF && right->nodetype == NODE_DEREF && left->ptr1->type->fields!=NULL && right->ptr1->type->fields!=NULL){
-                struct Fieldlist* list = left->ptr1->type->fields;
 
                 int leftAddr = getIdentifierAddr(output, left);
                 int rightAddr = getIdentifierAddr(output, right);
@@ -496,7 +495,7 @@ int codeGen(struct ASTNode* root, FILE* output){
                 int temp1 = getReg(), temp2 = getReg(), size = getReg();
                 int start = getNewLabel(), end = getNewLabel();
                 
-                fprintf(output, "MOV R%d, %d\n", size, left->ptr1->type->size);
+                fprintf(output, "MOV R%d, %d\n", size, left->type->size);
                 fprintf(output, "MOV R%d, 0\n", temp1);
                 
                 fprintf(output, "L%d:\n", start);

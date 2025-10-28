@@ -743,13 +743,12 @@ YY_RULE_SETUP
 {   
                                         if(!tableCreated){
                                             labelList = insertNewLabel(labelList, strndup(yytext, yyleng - 2), CurrAddr);
-                                            printf("%s - %d\n", strndup(yytext, yyleng - 2), CurrAddr);
                                         }
                                     }
 	YY_BREAK
 case 2:
 YY_RULE_SETUP
-#line 25 "label.l"
+#line 24 "label.l"
 {
                                         if(tableCreated)
                                             fprintf(translated, "%d", getAddr(labelList, yytext)); 
@@ -759,7 +758,7 @@ YY_RULE_SETUP
 case 3:
 /* rule 3 can match eol */
 YY_RULE_SETUP
-#line 30 "label.l"
+#line 29 "label.l"
 {
                                         if(!tableCreated)
                                             CurrAddr+=2;
@@ -770,7 +769,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 4:
 YY_RULE_SETUP
-#line 37 "label.l"
+#line 36 "label.l"
 {   
                                         if(tableCreated)
                                             fprintf(translated, "%s", yytext); 
@@ -778,10 +777,10 @@ YY_RULE_SETUP
 	YY_BREAK
 case 5:
 YY_RULE_SETUP
-#line 42 "label.l"
+#line 41 "label.l"
 ECHO;
 	YY_BREAK
-#line 785 "lex.yy.c"
+#line 784 "lex.yy.c"
 case YY_STATE_EOF(INITIAL):
 	yyterminate();
 
@@ -1786,7 +1785,7 @@ void yyfree (void * ptr )
 
 #define YYTABLES_NAME "yytables"
 
-#line 42 "label.l"
+#line 41 "label.l"
 
 
 int yywrap(){

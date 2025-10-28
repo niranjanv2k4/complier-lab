@@ -5,31 +5,43 @@
 #include <stdlib.h>
 #include <string.h>
 #include "../main.h"
-struct Fieldlist;
 
-struct Typetable {
-    char *name;                  
-    int size;                    
-    struct Fieldlist *fields;    
-    struct Typetable *next;      
-};
+// Forward declaration of ASTNode
+struct ASTNode;
 
-
+// Field list structure
 struct Fieldlist {
-    char *name;                  
-    struct Typetable *type;      
-    int fieldIndex;              
-    struct Fieldlist *next;      
+    char *name;
+    struct Typetable *type;
+    int fieldIndex;
+    struct Fieldlist *next;
 };
 
+// Type table structure
+struct Typetable {
+    char *name;
+    int size;
+    struct Fieldlist *fields;
+    struct Typetable *next;
+};
 
+// Global type table pointer and field index
 extern struct Typetable *TypeTable;
+extern int Fieldindex;
 
-void TypeTableCreate();  
+// Type table functions
+void TypeTableCreate();
 struct Typetable *TLookup(char *name);
 struct Typetable *TInstall(char *name, int size, struct Fieldlist *fields);
+void PrintTypeTable();
+
+// Field list functions
 struct Fieldlist *FLookup(struct Fieldlist *fieldList, char *name);
 struct Fieldlist *FInstall(struct Fieldlist *fieldList, char *name, struct Typetable *type);
-void PrintTypeTable();
-struct Typetable* TInstallTuple(struct ASTNode* id, struct Fieldlist* fields);
-#endif
+
+// Tuple-specific functions
+struct Typetable *TInstallTuple(struct ASTNode* id, struct Fieldlist* fields);
+struct Fieldlist *createField(struct Typetable* type, struct ASTNode* id);
+struct Fieldlist *appendField(struct Fieldlist* head, struct Fieldlist* node);
+
+#endif // TYPE_H

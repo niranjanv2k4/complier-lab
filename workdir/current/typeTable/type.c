@@ -27,6 +27,8 @@ void TypeTableCreate() {
     TInstall("bool", 1, NULL);
     TInstall("int ptr", 1, NULL);
     TInstall("str ptr", 1, NULL);
+    TInstall("int arr", 1, NULL);
+    TInstall("str arr", 1, NULL);
     TInstall("void", 0, NULL);
 }
 

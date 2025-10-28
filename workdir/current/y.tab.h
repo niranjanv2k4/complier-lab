@@ -137,7 +137,7 @@ extern int yydebug;
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 union YYSTYPE
 {
-#line 23 "compiler.y"
+#line 28 "compiler.y"
 
     struct ASTNode* node;
     struct param* parameter;

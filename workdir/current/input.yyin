@@ -1,71 +1,22 @@
+decl
+    
+    int arr[5];
+    int fn(int n);
+    int *p;
+
+    tuple student(str name) s1;
+    tuple teacher(str name) t1;
+
+enddecl
+
 
 int main(){
-decl
-    int a, b;
-    str s1, s2;
-    tuple record(int id, str name) t1, t2, *pt1, *pt2;
-    int* p1, *p2;
-    str* ps1, *ps2;
-enddecl
-begin
-    write("read int");
-    read(a);
-    write("int via b");
-    b = a;
-    write(b);
+    decl
+        
+    enddecl
+    begin
+        t1 = s1;
 
-    write("read str");
-    read(s1);
-    write("str via s2");
-    s2 = s1;
-    write(s2);
-
-    write("read tup");
-    read(t1.id);
-    read(t1.name);
-    write("tup via t2");
-    t2 = t1;
-    write(t2.id);
-    write(t2.name);
-
-    write("read ptr");
-    p1 = &a;
-    write("int via *p");
-    read(*p1);
-    write(a);
-
-    write("read sptr");
-    ps1 = &s1;
-    write("str via *ps");
-    read(*ps1);
-    write(s1);
-
-    write("read tptr");
-    pt1 = &t1;
-    write("tup via *pt");
-    read((*pt1).id);
-    read((*pt1).name);
-    write(t1.id);
-    write(t1.name);
-
-    write("p2=p1");
-    p2 = p1;
-    read(*p2);
-    write(a);
-
-    write("ps2=ps1");
-    ps2 = ps1;
-    read(*ps2);
-    write(s1);
-
-    write("pt2=pt1");
-    pt2 = pt1;
-    read((*pt2).id);
-    read((*pt2).name);
-    write(t1.id);
-    write(t1.name);
-
-    write("end");
-    return 0;
-end
+        return 0;
+    end
 }

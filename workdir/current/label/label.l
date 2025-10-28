@@ -19,7 +19,6 @@ labels   (L[0-9]+|__F[0-9]+|MAIN)
 {labels}:"\n"                       {   
                                         if(!tableCreated){
                                             labelList = insertNewLabel(labelList, strndup(yytext, yyleng - 2), CurrAddr);
-                                            printf("%s - %d\n", strndup(yytext, yyleng - 2), CurrAddr);
                                         }
                                     }
 {labels}                            {
