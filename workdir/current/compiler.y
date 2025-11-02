@@ -17,12 +17,6 @@
     struct LSymbol* LST = NULL;
     struct Typetable* current_type;
 
-    bool isTuple = false;
-
-    struct Typetable* arrType(){
-        return current_type == TLookup("int")?TLookup("int arr"):TLookup("str arr");
-    }
-
 %}
 
 %union{
@@ -42,8 +36,9 @@
 %token GE LE EQ GT LT NE 
 %token WHILE DO END_WHILE BREAK CONTINUE REPEAT UNTILL 
 %token DECL ENDDECL 
-%token INT STR TUPLE
+%token INT STR
 %token MAIN
+%token TYPE ENDTYPE ALLOC INITIALIZE FREE NULL_VAL
 
 %token  RETURN
 
@@ -55,8 +50,9 @@
 %type <node> AsgnStmt OutputStmt InputStmt
 %type <node> Coderegion RtnStmt
 %type <node> IDENTIFIERS
+%type <node> UserDef
 %type <parameter> Param ParamList
-%type <fieldlist> Field FieldList
+%type <fieldlist> FieldDeclList FieldDecl
 
 %type <node> ArgList;
 
@@ -74,41 +70,55 @@
 
 %%
 
-program     :   GDeclBlock FDefBlock MainBlock  {   exitProg(output);printGST();  }
-            |   GDeclBlock MainBlock            {   exitProg(output);printGST();  }
-            |   MainBlock                       {   exitProg(output);printGST();  }
+program     :   TypeDefBlock GDeclBlock FDefBlock MainBlock  {   exitProg(output);  }
+            |   TypeDefBlock GDeclBlock MainBlock            {   exitProg(output);  }
+            |   TypeDefBlock MainBlock                       {   exitProg(output);  }
             ;
+     
+/* -------------------------------------------------------------------------------------------------- */
 
-GDeclBlock  :   DECL GDeclList ENDDECL          {    }
+TypeDefBlock    :   TYPE TypeDefList ENDTYPE
+                |                                                
+                ;
+
+TypeDefList     :   TypeDefList TypeDef
+                |   TypeDef
+                ;
+
+TypeDef         :   ID  { TInstall($1->name, 0, NULL, TYPE_USERDEF); } '{' FieldDeclList '}'   {   updateUserDefined($1->name, $4); }
+                ;
+
+FieldDeclList   :   FieldDeclList FieldDecl       {   $$ = appendField($1, $2);   }
+                |   FieldDecl                     {   $$ = $1; }
+                ;
+
+FieldDecl       :   TypeName ID EOL               {   $$ = createField(current_type, $2); }
+                ;
+TypeName        :   INT                           {   current_type = TLookup("int"); }
+                |   STR                           {   current_type = TLookup("str"); }
+                |   ID                            {   current_type = TLookup($1->name);  }
+                ;
+
+/* -------------------------------------------------------------------------------------------------- */
+
+GDeclBlock  :   DECL GDeclList ENDDECL          {   }
             |   DECL ENDDECL                    {   }
             ;
 GDeclList   :   GDeclList GDecl
             |   GDecl
 GDecl       :   Type GidList EOL                {  }
             ;
-Type        :   INT                             {   current_type = TLookup("int");          isTuple = false;    }
-            |   STR                             {   current_type = TLookup("str");          isTuple = false;    }
-            |   TUPLE ID '(' FieldList ')'      {   current_type = TInstallTuple($2, $4);   isTuple = true;     }
+Type        :   INT                             {   current_type = TLookup("int");      }
+            |   STR                             {   current_type = TLookup("str");      }
+            |   ID                              {   current_type = TLookup($1->name);   }
             ;
 GidList     :   GidList ',' Gid
             |   Gid
             ;
 Gid         :   ID                              {   GST = insertToGlobal($1, current_type, 1, 0, 0,NULL, NODE_ID, false);    }
             |   STAR ID                         {   GST = insertToGlobal($2, current_type, 1, 0, 0, NULL, NODE_ID, true);    }
-            |   ID '[' NUM ']'                  {   
-                                                    if(isTuple){
-                                                        printf("Error: Cannot declare array of tuples\n");
-                                                        exit(1);
-                                                    }
-                                                    GST = insertToGlobal($1, arrType(), $3->value.intVal, 1, $3->value.intVal, NULL, NODE_ID, false); 
-                                                }
-            |   ID '(' ParamList ')'            {   
-                                                    if(isTuple){
-                                                        printf("Error: Cannot declare function of tuples\n");
-                                                        exit(1);
-                                                    }
-
-                                                    GST = insertToGlobal($1, current_type, 0, 0, 0, $3, NODE_FUNCT,false);  
+            |   ID '[' NUM ']'                  {   GST = insertToGlobal($1, current_type, $3->value.intVal, 1, $3->value.intVal, NULL, NODE_ID, false);   }
+            |   ID '(' ParamList ')'            {   GST = insertToGlobal($1, current_type, 0, 0, 0, $3, NODE_FUNCT,false);  
                                                     clearLST();  
                                                 }
             ;
@@ -120,14 +130,21 @@ FDefBlock   :   FDefBlock Fdef                  {      }
 Fdef        :   INT ID '(' ParamList ')' '{' LDeclBlock Coderegion '}'      {   
                                                                                 setHeader(output);  
                                                                                 validateFunct(TLookup("int"), $2, $4, $8); 
-                                                                                //printLST($2->name);
+                                                                                // printLST($2->name);
                                                                                 generateFunct(output, $2, $8);
                                                                                 clearLST();  
                                                                             }
             |   STR ID '(' ParamList ')' '{' LDeclBlock Coderegion '}'      {   
                                                                                 setHeader(output);  
-                                                                                //printLST($2->name);
                                                                                 validateFunct(TLookup("str"), $2, $4, $8);    
+                                                                                // printLST($2->name);
+                                                                                generateFunct(output, $2, $8);
+                                                                                clearLST();  
+                                                                            }
+            |   ID  ID '(' ParamList ')' '{' LDeclBlock Coderegion '}'      {   
+                                                                                setHeader(output);  
+                                                                                validateFunct(TLookup($1->name), $2, $4, $8);    
+                                                                                // printLST($2->name);
                                                                                 generateFunct(output, $2, $8);
                                                                                 clearLST();  
                                                                             }
@@ -137,8 +154,8 @@ Fdef        :   INT ID '(' ParamList ')' '{' LDeclBlock Coderegion '}'      {
 
 MainBlock   :   INT MAIN '('')' '{' LDeclBlock Coderegion '}'               {   
                                                                                 setHeader(output);  
-                                                                                printLST("MAIN");
                                                                                 validateMain($7);
+                                                                                // printLST("MAIN");
                                                                                 generateFunct(output, NULL, $7);
                                                                                 clearLST();
                                                                             }
@@ -156,16 +173,6 @@ Param       :   INT ID                  {   $$ = createParam("int", $2, false); 
             |   STR STAR ID             {   $$ = createParam("str", $3, true);   }
             |   ID STAR ID              {   $$ = createParam($1->name, $3, true);  }
             |   ID ID                   {   $$ = createParam($1->name, $2, false); }
-            ;
-
-/* --------------------------------------------------------------------------------- */
-
-FieldList   :   FieldList ',' Field     {   $$ = appendField($1, $3); }
-            |   Field                   {   $$ = $1; }
-            |                           {   $$ = NULL; }
-            ;
-Field       :   INT ID                  {   $$ = createField(TLookup("int"), $2);   }
-            |   STR ID                  {   $$ = createField(TLookup("str"), $2);   }
             ;
 
 /* ------------------------------------------------------------------------------------ */
@@ -203,12 +210,15 @@ Stmt        :   InputStmt                           {   $$ = $1; }
             |   CONTINUE EOL                        {   $$ = createControlFlowNode(NODE_CONTINUE); }
             |   RptUntlStmt                         {   $$ = $1; }
             |   DoWhileStmt                         {   $$ = $1; }
+            |   FREE '(' IDENTIFIERS ')' EOL        {   $$ = createDynamicNode(NODE_FREE, $3);  }
             ;
 InputStmt   :   READ'('IDENTIFIERS')' EOL           {   $$ = createTreeNode(NODE_READ, $3, NULL);   }
             ;
 OutputStmt  :   WRITE'(' expr ')' EOL               {   $$ = createTreeNode(NODE_WRITE, $3, NULL);     }
             ;
 AsgnStmt    :   IDENTIFIERS ASSGN expr EOL          {   $$ = createTreeNode(NODE_ASSIGN, $1, $3);    }
+            |   IDENTIFIERS ASSGN ALLOC '('')' EOL  {   $$ = createDynamicNode(NODE_ALLOC, $1);  }
+            |   IDENTIFIERS ASSGN INITIALIZE '('')' EOL  {   $$ = createDynamicNode(NODE_INITIALIZE, NULL);  }
             ;
 
 IfStmt      :   IF '(' expr ')' THEN Slist ELSE Slist ENDIF EOL  {  $$ = createIfNode($3, $6, $8);  }
@@ -239,18 +249,22 @@ expr        :   expr ADD expr                       {   $$ = createTreeNode(NODE
             |   STR_LITERAL                         {   $$ = $1;   }
             |   ID '(' ArgList ')'                  {   $$ = createFunctNode($1, $3);   }
             |   IDENTIFIERS                         {   $$ = $1;    }
+            |   NULL_VAL                            {   $$ = createDynamicNode(NODE_NULL, NULL);    }
             ;
 ArgList     :   ArgList ',' expr                    {   $$ = appendArgNode($1, $3); }
             |   expr                                {   $$ = $1; }
             |                                       {   $$ = NULL;  }
             ;
 
-IDENTIFIERS :   ID                                  { setType($1); $$ = $1; }
-            |   ID '[' expr ']'                     { $$ = createArrayNode($1, NULL, $3); }
-            |   STAR ID                             { $$ = createDerefNode($2); }
-            |   '&' ID                              { $$ = createAddrNode($2); }
-            |   '(' expr  ')' '.' ID                { $$ = createTupleNode($2, $5); }
-            |   ID '.' ID                           { $$ = createTupleNode($1, $3); }
+IDENTIFIERS :   ID                                  {   setType($1); $$ = $1; }
+            |   ID '[' expr ']'                     {   $$ = createArrayNode($1, NULL, $3); }
+            |   STAR ID                             {   $$ = createDerefNode($2); }
+            |   '&' ID                              {   $$ = createAddrNode($2); }
+            |   '(' expr  ')' '.' ID                {   $$ = createFieldAccessNode($2, $5); }
+            |   UserDef                             {   $$ = $1;    }
+UserDef     :   UserDef '.' ID                      {   $$ = createFieldAccessNode($1, $3);  }
+            |   ID '.' ID                           {   $$ = createFieldAccessNode($1, $3); }
+            |   ID '[' expr ']' '.' ID              {   $$ = createFieldAccessNode(createArrayNode($1, NULL, $3), $6); }
             ;
         
 %%
@@ -274,7 +288,7 @@ int main(int argc, char **argv){
     TypeTableCreate();
     output = fopen("output.xsm", "w");
     yyparse();
-
+    printGST();
     fclose(output);
     return 0;
 }

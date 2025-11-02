@@ -2,7 +2,6 @@
 #define SYMBOL_H
 
 #include "../main.h"
-#include "../constant.h"
 #include "../typeTable/type.h"
 
 extern struct GSymbol* GST;

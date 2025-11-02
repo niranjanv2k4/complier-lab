@@ -1,22 +1,63 @@
+type
+  node {
+    int val;
+    node next;
+  }
+endtype
+
 decl
-    
-    int arr[5];
-    int fn(int n);
-    int *p;
-
-    tuple student(str name) s1;
-    tuple teacher(str name) t1;
-
+  node head[3], temp_node;
+  int i, j, n, temp;
 enddecl
 
+int main() {
+  decl
+    node curr;
+  enddecl
+  begin
+  temp = initialize();
+    i = 0;
 
-int main(){
-    decl
-        
-    enddecl
-    begin
-        t1 = s1;
+    while (i < 3) do
+      head[i] = null;
+      write("No of node :");
+      write(i);
+      read(n);
 
-        return 0;
-    end
+      temp = n;
+      while(temp>0)do
+        curr = alloc();
+        curr.next = null;
+        read(curr.val);
+
+        if(head[i] == null)then
+          head[i] = curr;
+        else
+          temp_node = head[i];
+          while(temp_node.next != null)do
+            temp_node = temp_node.next;
+          endwhile;
+          temp_node.next = curr;
+        endif;
+
+        temp = temp - 1;
+      endwhile;
+
+      i = i+1;
+    endwhile;
+
+    i = 0;
+    while (i < 3) do
+      write("List ");
+      write(i);
+      curr = head[i];
+      while (curr != null) do
+        write(curr.val);
+        curr = curr.next;
+      endwhile;
+      i = i + 1;
+    endwhile;
+
+    return 0;
+  end
 }

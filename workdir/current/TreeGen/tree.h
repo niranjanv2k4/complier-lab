@@ -2,7 +2,6 @@
 #define TREE_H
 
 #include "../main.h"
-#include "../constant.h"
 #include "../typeTable/type.h"
 #include "../symbolTable/symbol.h"
 
@@ -22,4 +21,7 @@ struct ASTNode* createFunctNode(struct ASTNode* id, struct ASTNode* args);
 struct ASTNode* createRtnNode(struct ASTNode* rtn);
 
 struct ASTNode* createTupleNode(struct ASTNode* id, struct ASTNode* field);
+struct ASTNode* createFieldAccessNode(struct ASTNode* ptr1, struct ASTNode* ptr2);
+struct ASTNode* createDynamicNode(int nodetype, struct ASTNode* id);
+
 #endif

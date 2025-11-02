@@ -11,7 +11,7 @@
 
 %}
 
-labels   (L[0-9]+|__F[0-9]+|MAIN)
+labels   (L[0-9]+|__F[0-9]+|MAIN|EXIT|ALLOC|WRITE|READ|FREE)
 
 
 %%
@@ -19,11 +19,13 @@ labels   (L[0-9]+|__F[0-9]+|MAIN)
 {labels}:"\n"                       {   
                                         if(!tableCreated){
                                             labelList = insertNewLabel(labelList, strndup(yytext, yyleng - 2), CurrAddr);
+                                            printf("%s - %d\n", strndup(yytext, yyleng - 2), CurrAddr);
                                         }
                                     }
 {labels}                            {
-                                        if(tableCreated)
+                                        if(tableCreated){
                                             fprintf(translated, "%d", getAddr(labelList, yytext)); 
+                                        }
 
                                     }
 "\n"                                {

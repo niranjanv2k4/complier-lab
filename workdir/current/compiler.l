@@ -69,12 +69,18 @@ letter     [a-zA-Z]
 "enddecl"       {   return ENDDECL; }
 "int"           {   return INT; }
 "str"           {   return STR; }
-"tuple"         {   return TUPLE;   }
 
 "main"          {   return MAIN;    }
 "return"        {   return RETURN;  }
 
-{letter}({letter}|{digit})*          {   yylval.node = createLeafNode(NULL, strdup(yytext), 0, NULL); 
+"type"          {   return TYPE;    }
+"endtype"       {   return ENDTYPE;    }
+"alloc"         {   return ALLOC;   }
+"initialize"    {   return INITIALIZE;  }
+"free"          {   return FREE;    }
+"null"          {   return NULL_VAL;    }
+
+{letter}({letter}|{digit}|_)*          {   yylval.node = createLeafNode(NULL, strdup(yytext), 0, NULL); 
                     return ID;  
                 }
 

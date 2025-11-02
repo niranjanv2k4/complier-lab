@@ -23,6 +23,19 @@ struct GSymbol* GSTLookup(char* name){
     return NULL;
 }
 
+struct LSymbol* LSTLookup(char* name){
+    struct LSymbol* temp = LST;
+
+    while(temp){
+        if(strcmp(temp->name, name)==0){
+            return temp;
+        }
+        temp = temp->next;
+    }
+
+    return NULL;
+}
+
 struct GSymbol* insertToGlobal(struct ASTNode* id, struct Typetable* type, int size, int rowSize, int colSize, struct param* list, int nodetype, bool isPointer){
 
     if(GSTLookup(id->name)!=NULL){
@@ -33,26 +46,22 @@ struct GSymbol* insertToGlobal(struct ASTNode* id, struct Typetable* type, int s
     struct GSymbol* node = malloc(sizeof(struct GSymbol));
 
     node->name = strdup(id->name);
-    
-    node->size = (colSize*colSize != 0)?colSize*rowSize:type->size;
-    node->size = isPointer?1:node->size;
 
+    node->size = (colSize*rowSize != 0)?colSize*rowSize:1;
     node->type = type;
 
     node->rowSize = rowSize;
     node->colSize = colSize;
     node->isPointer = isPointer;
+    node->binding = -1;
+    node->flabel = -1;
+    node->paramlist = list;
 
     /* NO LABEL IF IT IS A FUNCTION */
     if(nodetype == NODE_FUNCT){
-        node->binding = -1;
-        node->paramlist = list;
         node->flabel = functionLabel++;
-    
     }else{
-        node->binding = getMem(isPointer?1:node->size);
-        node->paramlist = NULL;
-        node->flabel = -1;
+        node->binding = getMem(node->size);
     }
 
     node->next = NULL;
@@ -115,6 +124,11 @@ struct param* appendParam(struct param* head, struct param* node){
 
 /* ADDING PARAMETERS TO LST */
 struct LSymbol* addParamtoLST(struct param* id) {
+
+    if(LSTLookup(id->name)){
+        printf("Error: '%s' already exist\n", id->name);
+        exit(1);
+    }
     
     struct LSymbol* node = malloc(sizeof(struct LSymbol));
     
@@ -135,6 +149,11 @@ struct LSymbol* addParamtoLST(struct param* id) {
     return LST;
 }
 struct LSymbol* createLST(struct ASTNode* id, struct Typetable* type, bool isPointer){
+
+    if(LSTLookup(id->name)){
+        printf("Error: '%s' already exist\n", id->name);
+        exit(1);
+    }
 
     struct LSymbol* node = malloc(sizeof(struct LSymbol));
 
@@ -242,15 +261,14 @@ void validateFunct(struct Typetable* type, struct ASTNode* id, struct param* par
 
     struct param* tempParamlist = paramlist;
     while(tempParamlist){
-        relativeAddr -= tempParamlist->isPointer?1:tempParamlist->type->size;
+        relativeAddr--;
         tempParamlist = tempParamlist->next;
     }
 
     while(tempLST){
         if(relativeAddr == -2)
             relativeAddr = 1;
-        tempLST->binding = relativeAddr;
-        relativeAddr += tempLST->isPointer?1:tempLST->type->size;
+        tempLST->binding = relativeAddr++;
         tempLST=tempLST->next;
     }
 
@@ -272,10 +290,8 @@ void validateMain(struct ASTNode* node){
     struct LSymbol* tempLST = LST;
 
     int relativeAddr = 1;
-
     while(tempLST){
-        tempLST->binding = relativeAddr;
-        relativeAddr += tempLST->isPointer?1:tempLST->type->size;
+        tempLST->binding = relativeAddr++;
         tempLST=tempLST->next;
     }
 }
@@ -285,10 +301,10 @@ void validateMain(struct ASTNode* node){
 void printLST(char* name){
     struct LSymbol* temp = LST;
     printf("FUNCTION - %s\n", name);
-    printf("%-12s %-8s %-8s %-8s %-15s\n", "name", "type", "binding", "Pointer", "Fields");
+    printf("%-14s %-14s %-10s %-10s %-30s\n", "name", "type", "binding", "Pointer", "Fields");
 
     while(temp){
-        printf("%-12s %-8s %-8d %-8s", temp->name, temp->type->name, temp->binding, temp->isPointer ? "Yes" : "No");
+        printf("%-14s %-14s %-10d %-10s", temp->name, temp->type->name, temp->binding, temp->isPointer ? "Yes" : "No");
 
         if(temp->type->fields){
             printf("  ");

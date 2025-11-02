@@ -1,68 +1,7 @@
 #include "exec.h"
 
-void writeToTerminal(FILE* output, int r);
-void readFromTerminal(FILE* output, struct ASTNode* root);
 int evaluate(struct ASTNode* root, FILE* output);
 int codeGen(struct ASTNode* root, FILE* output);
-
-
-
-
-
-/**/
-
-static uint32_t used = 0;
-int newLabel = 0;
-int regNum = 0;
-
-bool isMain = false;
-bool headerSet = true;
-
-/* array for keeping track of current  loop labels */
-static struct LoopLabels loopStack[MAX_LOOP_NESTING];
-static int loopTop = -1;
-
-void pushLoop(int start, int end) {
-    loopTop++;
-    loopStack[loopTop].start = start;
-    loopStack[loopTop].end   = end;
-}
-void popLoop(void) {
-    loopTop--;
-}
-int getLoopStart(void) {
-    return loopStack[loopTop].start;
-}
-int getLoopEnd(void) {
-    return loopStack[loopTop].end;
-}
-
-/* -----Register & label managing----- */
-int getReg(){
-    for(int i = 0; i<20; i++){
-        if(!(used & (1u <<i))){
-            used |= (1u <<i);
-            return i;
-        }
-    }
-    printf("Out of regusters\n");
-    exit(1);
-    return -1;
-}
-
-int freeReg(int reg){
-    if(reg>=0 && reg<20 && (used & (1u <<reg))){
-        used &= ~(1u <<reg);
-        return 0;
-    }
-    printf("No registers to free - %d\n", reg);
-    exit(1);
-    return -1;
-}
-
-int getNewLabel(){
-    return newLabel++;
-}
 
 int getAddr(FILE* output, struct ASTNode* node){
 
@@ -76,24 +15,11 @@ int getAddr(FILE* output, struct ASTNode* node){
         fprintf(output, "MOV R%d, %d\n", reg, node->Gentry->binding);
 
         if(node->Gentry->colSize != 0){
+            int colOffset = evaluate(node->ptr2, output);
+            
+            fprintf(output, "ADD R%d, R%d\n", reg, colOffset);
 
-            if(node->ptr1){
-                int rowOffset = evaluate(node->ptr1, output);
-                int colOffset = evaluate(node->ptr2, output);
-
-                fprintf(output, "MUL R%d, %d\n", rowOffset, node->Gentry->rowSize);
-                fprintf(output, "ADD R%d, R%d\n", rowOffset, colOffset);
-                fprintf(output, "ADD R%d, R%d\n", reg, rowOffset);
-
-                freeReg(rowOffset);
-                freeReg(colOffset);
-            }else{
-                int colOffset = evaluate(node->ptr2, output);
-                
-                fprintf(output, "ADD R%d, R%d\n", reg, colOffset);
-
-                freeReg(colOffset);
-            }
+            freeReg(colOffset);
         }
     }
 
@@ -110,20 +36,17 @@ int getIdentifierAddr(FILE* output, struct ASTNode* root){
             fprintf(output, "MOV R%d, [R%d]\n", addr, addr);
             break;
         }
-        case NODE_TUPLE:{
-            if(root->ptr1->nodetype == NODE_ID){
-                addr = getAddr(output, root->ptr1);
-                struct Fieldlist* temp = FLookup(root->ptr1->type->fields, root->ptr2->name);
-                fprintf(output, "ADD R%d, %d\n", addr, temp->fieldIndex);
-            }else{
-                addr = getIdentifierAddr(output, root->ptr1);
-                struct Fieldlist* temp = FLookup(root->ptr1->ptr1->type->fields, root->ptr2->name);
-                fprintf(output, "ADD R%d, %d\n", addr, temp->fieldIndex);
-            }
-            break;
-        }
         case NODE_ADDR: {
             addr = getAddr(output, root->ptr1);
+            break;
+        }
+        case NODE_FIELDACCESS: {
+            addr = getIdentifierAddr(output, root->ptr1);
+            
+            fprintf(output, "MOV R%d, [R%d]\n", addr, addr);
+
+            struct Fieldlist* field = FLookup(root->ptr1->type->fields, root->ptr2->name);
+            fprintf(output, "ADD R%d, %d\n", addr, field->fieldIndex);
             break;
         }
         default: {
@@ -190,11 +113,12 @@ int evaluate(struct ASTNode* root, FILE* output){
         }
         case NODE_ID:
         case NODE_DEREF:
-        case NODE_TUPLE: {
+        case NODE_FIELDACCESS:{
             int addr = getIdentifierAddr(output, root);
             fprintf(output, "MOV R%d, [R%d]\n", addr,addr);
             return addr;
         }
+        
         case NODE_FUNCT:{
 
             /* storing the used registers */
@@ -209,47 +133,26 @@ int evaluate(struct ASTNode* root, FILE* output){
             /* pushing arguments */
             struct ASTNode* tempArglist = root->ptr1->arglist;
             while(tempArglist){
-                if(tempArglist->type->fields == NULL){
-                    int reg = evaluate(tempArglist, output);
-                    fprintf(output, "PUSH R%d\n", reg);
-                    freeReg(reg);
-                }else{
-                    if(tempArglist->isPointer){
-                        int addr = getAddr(output, tempArglist->ptr1);
-                        fprintf(output, "PUSH R%d\n", addr);
-                        freeReg(addr);
-                    }else{
-                        struct Fieldlist* temp = tempArglist->type->fields;
-                        int addr = getReg();
-                        while(temp){
-                            fprintf(output, "MOV R%d, %d\n", addr, tempArglist->Gentry->binding);
-                            fprintf(output, "ADD R%d, %d\n", addr, temp->fieldIndex);
-                            fprintf(output, "MOV R%d, [R%d]\n", addr, addr);
-                            fprintf(output, "PUSH R%d\n", addr);
-                            temp = temp->next;
-                        }
-                        freeReg(addr);
-                    }
+                int res;
+
+                if(tempArglist->type->category == TYPE_PRIMITIVE && !tempArglist->isPointer)
+                    res = evaluate(tempArglist, output);
+                else{
+                    res = getIdentifierAddr(output, tempArglist);
+                    fprintf(output, "MOV R%d, [R%d]\n", res, res);
                 }
+
+                fprintf(output, "PUSH R%d\n", res);
+                freeReg(res);
                 tempArglist= tempArglist->arglist;
             }
 
-            /* space for return value */
-            if(root->ptr1->type->fields == NULL || root->ptr1->isPointer){
-                fprintf(output, "PUSH R%d\n", res);
-                fprintf(output, "CALL __F%d\n", root->ptr1->Gentry->flabel);
+            fprintf(output, "PUSH R%d\n", res);
+            fprintf(output, "CALL __F%d\n", root->ptr1->Gentry->flabel);
 
-                /* taking the return value */
-                fprintf(output, "POP R%d\nBRKP\n", res);
-            }else{
-                
-                /* CASE FOR RETURNING TUPLES HAVE TO PUSH SPACES REQUIRED FOR ALL VALUES IN TUPLE   */
-                struct Fieldlist* temp = root->ptr1->type->fields;
-
-
-            }
-
-
+            /* taking the return value */
+            fprintf(output, "POP R%d\nBRKP\n", res);
+            
             int temp = getReg();
             tempArglist = root->ptr1->arglist;
             while(tempArglist){
@@ -312,6 +215,11 @@ int evaluate(struct ASTNode* root, FILE* output){
         }
         case NODE_ADDR: {
             return getIdentifierAddr(output, root->ptr1);
+        }
+        case NODE_NULL: {
+            int res = getReg();
+            fprintf(output, "MOV R%d, %d\n", res, -1000);
+            return res;
         }
     }
 
@@ -482,44 +390,74 @@ int codeGen(struct ASTNode* root, FILE* output){
             return -1;
         }
 
+        case NODE_ALLOC:{
+            int temp = getReg(), res = getReg();
+
+            fprintf(output, "MOV R%d, \"Alloc\"\nPUSH R%d\n", temp, temp);
+            fprintf(output, "PUSH R%d\nPUSH R%d\nPUSH R%d\nPUSH R%d\n", temp, temp, temp, temp);
+
+            fprintf(output, "CALL 0\n");
+
+            fprintf(output, "POP R%d\nPOP R%d\nPOP R%d\nPOP R%d\nPOP R%d\n", res, temp, temp, temp, temp);
+
+            int leftAddr = getIdentifierAddr(output, root->ptr1);
+
+            fprintf(output, "MOV [R%d], R%d\n", leftAddr, res);
+            freeReg(temp);
+            freeReg(res);
+            return -1;
+        }
+
+        case NODE_FREE: {
+            int addr = getIdentifierAddr(output, root->ptr1);
+            int temp = getReg();
+
+            fprintf(output, "MOV R%d, R%d\n", temp, addr);
+            fprintf(output,"MOV R%d, [R%d]\n", addr, addr);
+            fprintf(output,"MOV [R%d], -6000\n", temp);
+
+            fprintf(output, "MOV R%d, \"Free\"\nPUSH R%d\n", temp, temp);
+            fprintf(output, "PUSH R%d\nPUSH R%d\nPUSH R%d\nPUSH R%d\n", addr, temp, temp, temp);
+
+            fprintf(output, "CALL 0\n");
+
+            fprintf(output, "POP R%d\nPOP R%d\nPOP R%d\nPOP R%d\nPOP R%d\n", temp, temp, temp, temp, temp);
+
+            freeReg(addr);
+            freeReg(temp);
+
+            return -1;
+        }
+
+        case NODE_INITIALIZE:{
+            int start = getNewLabel(), end = getNewLabel();
+            int baseAddr = getReg(), nextAddr = getReg(), temp = getReg();
+
+            fprintf(output, "MOV R%d, 1024\n", baseAddr);
+            fprintf(output, "MOV R%d, R%d\n", nextAddr, baseAddr);
+            fprintf(output, "L%d:\n", start);
+            fprintf(output, "ADD R%d, %d\n", nextAddr, HB_SIZE);
+            fprintf(output, "MOV R%d, 2048\n", temp);
+            fprintf(output, "GE R%d, R%d\n", temp, nextAddr);
+            fprintf(output, "JZ R%d, L%d\n", temp, end);
+            fprintf(output, "MOV [R%d], R%d\n", baseAddr, nextAddr);
+            fprintf(output, "MOV R%d, R%d\n", baseAddr, nextAddr);
+            fprintf(output, "JMP L%d\n", start);
+            fprintf(output, "L%d:\n", end);
+
+            freeReg(baseAddr);
+            freeReg(nextAddr);
+            freeReg(temp);
+
+            return -1;
+        }
+
         case NODE_ASSIGN:{
             struct ASTNode* left = root->ptr1;
             struct ASTNode* right = root->ptr2;
-
-            if(left->type->fields != NULL && !left->isPointer){
-                struct Fieldlist* list = left->type->fields;
-
-                int leftAddr = getIdentifierAddr(output, left);
-                int rightAddr = getIdentifierAddr(output, right);
-
-                int temp1 = getReg(), temp2 = getReg(), size = getReg();
-                int start = getNewLabel(), end = getNewLabel();
-                
-                fprintf(output, "MOV R%d, %d\n", size, left->type->size);
-                fprintf(output, "MOV R%d, 0\n", temp1);
-                
-                fprintf(output, "L%d:\n", start);
-                fprintf(output, "MOV R%d, R%d\n",temp2, temp1);
-                fprintf(output, "LT R%d, R%d\n", temp2, size);
-                fprintf(output, "JZ R%d, L%d\n", temp2, end);
-                fprintf(output, "MOV [R%d], [R%d]\n", leftAddr, rightAddr);
-                fprintf(output, "ADD R%d, 1\n", leftAddr);
-                fprintf(output, "ADD R%d, 1\n", rightAddr);
-                fprintf(output, "ADD R%d, 1\n", temp1);
-                fprintf(output, "JMP L%d\n", start);
-                fprintf(output, "L%d:\n", end);
-
-                freeReg(leftAddr);
-                freeReg(rightAddr);
-                freeReg(temp1);
-                freeReg(temp2);
-                freeReg(size);
-
-                return -1;
-            }
             
-            int res = evaluate(root->ptr2, output);
-            int addr = getIdentifierAddr(output, root->ptr1);
+            int res = evaluate(right, output);
+            int addr = getIdentifierAddr(output, left);
             
             fprintf(output, "MOV [R%d], R%d\n", addr, res);
 
@@ -573,13 +511,10 @@ int codeGen(struct ASTNode* root, FILE* output){
             int res = evaluate(root->ptr1, output);
             int temp = getReg();
             
-            
-            if(!isMain){
-                fprintf(output, "MOV SP, BP\n");
-                fprintf(output,"MOV R%d, BP\n", temp);
-                fprintf(output,"SUB R%d, 2\n", temp);
-                fprintf(output, "MOV [R%d], R%d\n", temp, res);
-            }
+            fprintf(output, "MOV SP, BP\n");
+            fprintf(output,"MOV R%d, BP\n", temp);
+            fprintf(output,"SUB R%d, 2\n", temp);
+            fprintf(output, "MOV [R%d], R%d\n", temp, res);
 
             freeReg(temp);
             freeReg(res);
@@ -601,20 +536,10 @@ void generateFunct(FILE* output, struct ASTNode* id, struct ASTNode* code){
         fprintf(output, "MOV BP, SP\n");
 
         while(tempLST){
-            if(tempLST->type->fields != NULL && !tempLST->isPointer){
-                struct Fieldlist* temp = tempLST->type->fields;
-                while(temp){
-                    fprintf(output, "PUSH R0\n");
-                    temp = temp->next;
-                }
-            }else{
-                fprintf(output, "PUSH R0\n");
-            }
+            fprintf(output, "PUSH R0\n");
             tempLST = tempLST->next;
         }
-        isMain = true;
         codeGen(code, output);
-        isMain = false;
         regNum = 0;
 
         return;
@@ -636,15 +561,7 @@ void generateFunct(FILE* output, struct ASTNode* id, struct ASTNode* code){
     }
 
     while(tempLST){
-        if(tempLST->type->fields != NULL  && !tempLST->isPointer){
-            struct Fieldlist* temp = tempLST->type->fields;
-            while(temp){
-                fprintf(output, "PUSH R0\n");
-                temp = temp->next;
-            }
-        }else{
-            fprintf(output, "PUSH R0\n");
-        }
+        fprintf(output, "PUSH R0\n");
         tempLST = tempLST->next;
     }
 
@@ -667,7 +584,7 @@ void setHeader(FILE* output){
 
     if(headerSet){
         fprintf(output, "0\n2056\n0\n0\n0\n0\n0\n0\n");
-        fprintf(output, "MOV SP, %d\n", currBinding);
+        fprintf(output, "MOV SP, %d\n", currBinding + 2);
         fprintf(output, "JMP MAIN\n");
         headerSet = false;
     }

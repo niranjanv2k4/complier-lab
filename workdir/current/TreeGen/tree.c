@@ -17,13 +17,11 @@ struct Typetable* resolveType(int nodetype, struct ASTNode* ptr1, struct ASTNode
     if(!ptr2)
         switch(nodetype){
             case NODE_READ:
-            case NODE_WRITE:
-                if(ptr1->nodetype != NODE_FUNCT && (ptr1->Gentry && ptr1->Gentry->flabel != -1)){
-                    printf("Error: Type mismatch\n");
-                    exit(1);
-                }
-                if(ptr1->type->fields != NULL){
-                    printf("Error: No fields\n");
+            case NODE_WRITE:{
+                bool flag = ptr1->nodetype != NODE_FUNCT && ptr1->Gentry && ptr1->Gentry->flabel != -1;
+                flag |= ptr1->type->category != TYPE_PRIMITIVE;
+                if(flag){
+                    printf("Error: Type mismatch in I/O statement\n");
                     exit(1);
                 }
                 if(ptr1->nodetype == NODE_ID && ptr1->isPointer){
@@ -31,6 +29,15 @@ struct Typetable* resolveType(int nodetype, struct ASTNode* ptr1, struct ASTNode
                     exit(1);
                 }
                 return TLookup("void");
+            }
+            case NODE_ALLOC:{
+                if(leftType->category != TYPE_USERDEF){
+                    printf("Error: '%s' is not a user defined type\n", ptr1->name);
+                    exit(1);
+                }
+                
+                return TLookup("void");
+            }
         }
 
     struct Typetable* rightType = ptr2->type;
@@ -64,7 +71,16 @@ struct Typetable* resolveType(int nodetype, struct ASTNode* ptr1, struct ASTNode
         case NODE_NE:
             if((isIntegerLike(leftType) && isIntegerLike(rightType)) || (isStringLike(leftType) && isStringLike(rightType)))
                 return TLookup("bool");
-
+            if(ptr2->nodetype == NODE_NULL){
+                if(ptr1->type->category == TYPE_USERDEF){
+                    return TLookup("bool");
+                }
+            }
+            if(ptr1->nodetype == NODE_NULL){
+                if(ptr2->type->category == TYPE_USERDEF){
+                    return TLookup("bool");
+                }
+            }
             printf("Type mistmatch in boolean operation\n");
             exit(1);
         case NODE_AND:
@@ -75,7 +91,10 @@ struct Typetable* resolveType(int nodetype, struct ASTNode* ptr1, struct ASTNode
             exit(1);
 
         case NODE_ASSIGN:
-            if(ptr1->nodetype == NODE_ID || ptr1->nodetype == NODE_TUPLE || ptr2->nodetype == NODE_TUPLE){
+            if(ptr2->nodetype == NODE_NULL && ptr1->type->category == TYPE_USERDEF){
+                    return TLookup("void");
+            }
+            else if(ptr1->nodetype == NODE_ID || ptr1->nodetype == NODE_FIELDACCESS){
                 if(strcmp(leftType->name, rightType->name) == 0 && ptr1->isPointer==ptr2->isPointer){
                     return TLookup("void");
                 }
@@ -136,6 +155,7 @@ struct ASTNode* createDerefNode(struct ASTNode* id) {
     node->ptr1 = id;
     node->ptr2 = NULL;
     node->type = id->type;
+    node->isPointer = false;
 
     return node;
 }
@@ -165,16 +185,11 @@ struct ASTNode* createTreeNode(int nodetype, struct ASTNode* ptr1, struct ASTNod
     struct ASTNode* node = malloc(sizeof(struct ASTNode));
 
     node->Gentry = NULL;
-
     node->nodetype = nodetype;
     node->ptr1 = ptr1;
     node->ptr2 = ptr2;
-
     node->isPointer = false;
-
     node->type = resolveType(nodetype, ptr1, ptr2);
-
-    /*right is null for read and write*/
 
     return node;
 }
@@ -210,12 +225,10 @@ struct ASTNode* createArrayNode(struct ASTNode* id, struct ASTNode* ptr1, struct
 
     setType(id);
 
-    if(id->type != TLookup("int arr") && id->type != TLookup("str arr")){
-        printf("'%s' is not an array\n", id->name);
+    if(id->Gentry->colSize == 0){
+        printf("Error: '%s' is not an array\n", id->name);
         exit(1);
     }
-
-    id->type = (id->type == TLookup("int arr")?TLookup("int"):TLookup("str"));
     
     id->ptr1 = ptr1;
     id->ptr2 = ptr2;
@@ -286,46 +299,47 @@ struct ASTNode* createRtnNode(struct ASTNode* rtn){
     return node;
 }
 
+struct ASTNode* createFieldAccessNode(struct ASTNode* ptr1, struct ASTNode* ptr2){
 
-struct ASTNode* createTupleNode(struct ASTNode* id, struct ASTNode* field){
-    if(field == NULL){
-        printf("Error: some field is required\n");
+    if(ptr1->name){
+        setType(ptr1);
+    }
+
+    struct Typetable* type = ptr1->type;
+
+    struct Fieldlist* field = FLookup(type->fields, ptr2->name);
+    if(!field){
+        printf("Error: '%s' does not have a field named '%s'\n", ptr1->type->name, ptr2->name);
         exit(1);
     }
-
-    if(id->nodetype != NODE_ID && id->nodetype != NODE_DEREF){
-        printf("Error: Cannot dereference\n");
-        exit(1);
-    }
-
-    if(id->nodetype == NODE_ID){
-        setType(id);
-        if(id->isPointer){
-            printf("Error: '%s' is a pointer type\n", id->name);
-            exit(1);
-        }
-    }
-
-    struct Typetable* targetType = (id->nodetype == NODE_ID?id->type:id->ptr1->type);
-    if (targetType == NULL || targetType->fields == NULL) {
-        printf("Error: '%s' is not a tuple type\n", id->name);
-        exit(1);
-    }
-    
-    struct Fieldlist* temp = FLookup(targetType->fields, field->name);
-
-    if(temp == NULL){
-        printf("Error: No field named '%s' in '%s'\n", field->name, id->name);
-        exit(1);
-    }
-
 
     struct ASTNode* node = malloc(sizeof(struct ASTNode));
 
-    node->type = temp->type;
-    node->nodetype = NODE_TUPLE;
+    node->name = NULL;
+    node->nodetype = NODE_FIELDACCESS;
+    node->ptr1 = ptr1;
+    node->ptr2 = ptr2;
+    node->type = field->type;
+
+    return node;
+}
+
+struct ASTNode* createDynamicNode(int nodetype, struct ASTNode* id){
+
+    if(nodetype == NODE_NULL || nodetype == NODE_INITIALIZE){
+        struct ASTNode* node = malloc(sizeof(struct ASTNode));
+        node->nodetype = nodetype;
+        return node;
+    }
+
+    if(id->type->category == TYPE_PRIMITIVE){
+        printf("Error: Memory allocation can only be done to user defined variables\n");
+        exit(1);
+    }
+
+    struct ASTNode* node = malloc(sizeof(struct ASTNode));
+    node->nodetype = nodetype;
     node->ptr1 = id;
-    node->ptr2 = field;
-    
+
     return node;
 }
