@@ -1,0 +1,63 @@
+type
+  node {
+    int val;
+    node next;
+  }
+endtype
+
+decl
+  node head[3], temp_node;
+  int i, j, n, temp;
+enddecl
+
+int main() {
+  decl
+    node curr;
+  enddecl
+  begin
+  temp = initialize();
+    i = 0;
+
+    while (i < 3) do
+      head[i] = null;
+      write("No of node :");
+      write(i);
+      read(n);
+
+      temp = n;
+      while(temp>0)do
+        curr = alloc();
+        curr.next = null;
+        read(curr.val);
+
+        if(head[i] == null)then
+          head[i] = curr;
+        else
+          temp_node = head[i];
+          while(temp_node.next != null)do
+            temp_node = temp_node.next;
+          endwhile;
+          temp_node.next = curr;
+        endif;
+
+        temp = temp - 1;
+      endwhile;
+
+      i = i+1;
+    endwhile;
+
+    i = 0;
+    while (i < 3) do
+      write("List ");
+      write(i);
+      curr = head[i];
+      while (curr != null) do
+        write(curr.val);
+        curr = curr.next;
+      endwhile;
+      i = i + 1;
+    endwhile;
+
+    return 0;
+  end
+}
