@@ -1,4 +1,5 @@
 #include "type.h"
+#include "../classTable/class.h"
 
 struct Typetable *TypeTable = NULL;
 int Fieldindex = 1;
@@ -63,12 +64,13 @@ struct Typetable *TInstall(char *name, int size, struct Fieldlist *fields, int c
     return newTypeEntry;
 }
 
-struct Fieldlist* createField(struct Typetable* type, struct ASTNode* id){
+struct Fieldlist* createField(char* type, char* id){
     struct Fieldlist* node = malloc(sizeof(struct Fieldlist));
 
-    node->name = strdup(id->name);
+    node->name = id;
     node->fieldIndex = Fieldindex++;
-    node->type = type;
+    node->type = TLookup(type);
+    node->class = CLookup(type);
     node->next = NULL;
 
     return node;

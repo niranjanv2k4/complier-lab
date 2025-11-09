@@ -4,60 +4,34 @@ type
     node next;
   }
 endtype
+class
+  test_class{
+    decl
+    int x;
+    int y;
+      test_class p1;
+    int max(int x, int y);
+      int print(int a);
+    enddecl
 
-decl
-  node head[3], temp_node;
-  int i, j, n, temp;
-enddecl
+    int print(int a){
+      begin
+        write(1);
+        return 0;
+      end
+    }
+  }
+
+endclass
 
 int main() {
   decl
-    node curr;
+    test_class local11, local12;
+    int temp;
   enddecl
   begin
-  temp = initialize();
-    i = 0;
-
-    while (i < 3) do
-      head[i] = null;
-      write("No of node :");
-      write(i);
-      read(n);
-
-      temp = n;
-      while(temp>0)do
-        curr = alloc();
-        curr.next = null;
-        read(curr.val);
-
-        if(head[i] == null)then
-          head[i] = curr;
-        else
-          temp_node = head[i];
-          while(temp_node.next != null)do
-            temp_node = temp_node.next;
-          endwhile;
-          temp_node.next = curr;
-        endif;
-
-        temp = temp - 1;
-      endwhile;
-
-      i = i+1;
-    endwhile;
-
-    i = 0;
-    while (i < 3) do
-      write("List ");
-      write(i);
-      curr = head[i];
-      while (curr != null) do
-        write(curr.val);
-        curr = curr.next;
-      endwhile;
-      i = i + 1;
-    endwhile;
-
+  local11.p1 = new (test_class);
+    local12 = local11;
     return 0;
   end
 }

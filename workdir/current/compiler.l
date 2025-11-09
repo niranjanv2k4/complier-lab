@@ -21,10 +21,10 @@ letter     [a-zA-Z]
 %%
 
 {digit}+        {   
-                    yylval.node = createLeafNode(TLookup("int"), NULL, atoi(yytext), NULL);
+                    yylval.node = createLeafNode(NODE_CONST, "int", NULL, atoi(yytext), NULL);
                     return NUM; 
                 }
-\"[^\"]*\"      {   yylval.node = createLeafNode(TLookup("str"), NULL, 0, strdup(yytext));
+\"[^\"]*\"      {   yylval.node = createLeafNode(NODE_CONST, "str", NULL, 0, strdup(yytext));
                     return STR_LITERAL;
                 }
 "+"             {   return ADD;    }
@@ -67,8 +67,8 @@ letter     [a-zA-Z]
 
 "decl"          {   return DECL;    }
 "enddecl"       {   return ENDDECL; }
-"int"           {   return INT; }
-"str"           {   return STR; }
+"int"           {   yylval.string = "int";return INT; }
+"str"           {   yylval.string = "str";return STR; }
 
 "main"          {   return MAIN;    }
 "return"        {   return RETURN;  }
@@ -80,7 +80,14 @@ letter     [a-zA-Z]
 "free"          {   return FREE;    }
 "null"          {   return NULL_VAL;    }
 
-{letter}({letter}|{digit}|_)*          {   yylval.node = createLeafNode(NULL, strdup(yytext), 0, NULL); 
+"class"         {   return CLASS;   }
+"endclass"      {   return ENDCLASS;   }
+"extends"       {   return EXTENDS;   }
+"delete"        {   return DELETE;  }
+"new"           {   return NEW; }
+"self"          {   return SELF;    }
+
+{letter}({letter}|{digit}|_)*          {   yylval.string = strdup(yytext); 
                     return ID;  
                 }
 

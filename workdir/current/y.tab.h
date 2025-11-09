@@ -81,19 +81,25 @@ extern int yydebug;
     ENDDECL = 287,
     INT = 288,
     STR = 289,
-    MAIN = 290,
-    TYPE = 291,
-    ENDTYPE = 292,
-    ALLOC = 293,
-    INITIALIZE = 294,
-    FREE = 295,
-    NULL_VAL = 296,
-    RETURN = 297,
-    NUM = 298,
-    ID = 299,
-    STR_LITERAL = 300,
-    OR = 301,
-    AND = 302
+    ID = 290,
+    MAIN = 291,
+    TYPE = 292,
+    ENDTYPE = 293,
+    ALLOC = 294,
+    INITIALIZE = 295,
+    FREE = 296,
+    NULL_VAL = 297,
+    CLASS = 298,
+    ENDCLASS = 299,
+    EXTENDS = 300,
+    NEW = 301,
+    DELETE = 302,
+    SELF = 303,
+    RETURN = 304,
+    NUM = 305,
+    STR_LITERAL = 306,
+    OR = 307,
+    AND = 308
   };
 #endif
 /* Tokens.  */
@@ -129,34 +135,41 @@ extern int yydebug;
 #define ENDDECL 287
 #define INT 288
 #define STR 289
-#define MAIN 290
-#define TYPE 291
-#define ENDTYPE 292
-#define ALLOC 293
-#define INITIALIZE 294
-#define FREE 295
-#define NULL_VAL 296
-#define RETURN 297
-#define NUM 298
-#define ID 299
-#define STR_LITERAL 300
-#define OR 301
-#define AND 302
+#define ID 290
+#define MAIN 291
+#define TYPE 292
+#define ENDTYPE 293
+#define ALLOC 294
+#define INITIALIZE 295
+#define FREE 296
+#define NULL_VAL 297
+#define CLASS 298
+#define ENDCLASS 299
+#define EXTENDS 300
+#define NEW 301
+#define DELETE 302
+#define SELF 303
+#define RETURN 304
+#define NUM 305
+#define STR_LITERAL 306
+#define OR 307
+#define AND 308
 
 /* Value type.  */
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 union YYSTYPE
 {
-#line 22 "compiler.y"
+#line 29 "compiler.y"
 
     struct ASTNode* node;
     struct param* parameter;
     struct LSymbol* localSymbolTable;
     struct Arglist* Args;
     struct Fieldlist* fieldlist;
+    char* string;
     int type;
 
-#line 160 "y.tab.h"
+#line 173 "y.tab.h"
 
 };
 typedef union YYSTYPE YYSTYPE;

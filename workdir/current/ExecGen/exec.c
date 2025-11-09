@@ -135,7 +135,7 @@ int evaluate(struct ASTNode* root, FILE* output){
             while(tempArglist){
                 int res;
 
-                if(tempArglist->type->category == TYPE_PRIMITIVE && !tempArglist->isPointer)
+                if(tempArglist->type->category == TYPE_PRIMITIVE)
                     res = evaluate(tempArglist, output);
                 else{
                     res = getIdentifierAddr(output, tempArglist);

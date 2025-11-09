@@ -1,5 +1,22 @@
 #include "tree.h"
 
+
+struct ASTNode* createNode(){
+
+    struct ASTNode* node = malloc(sizeof(struct ASTNode));;
+
+    node->ptr1 = NULL;
+    node->ptr2 = NULL;
+    node->ptr3 = NULL;
+    node->Gentry = NULL;
+    node->Lentry = NULL;
+    node->arglist = NULL;
+    node->name = NULL;
+    node->type = NULL;
+    node->method = NULL;
+
+    return node;
+}
 bool isIntegerLike(struct Typetable* t) {
     return t == TLookup("int") || t == TLookup("int arr");
 }
@@ -10,9 +27,15 @@ bool isBoolLike(struct Typetable* t) {
     return t == TLookup("bool");
 }
 
+bool checkType(struct ASTNode* id, int category){
+    if(id->Lentry && id->Lentry->category == category){
+        return true;
+    }
+    return id->Gentry->category == category;
+}
+
 struct Typetable* resolveType(int nodetype, struct ASTNode* ptr1, struct ASTNode* ptr2) {
 
-    struct Typetable* leftType = ptr1->type;
 
     if(!ptr2)
         switch(nodetype){
@@ -24,14 +47,10 @@ struct Typetable* resolveType(int nodetype, struct ASTNode* ptr1, struct ASTNode
                     printf("Error: Type mismatch in I/O statement\n");
                     exit(1);
                 }
-                if(ptr1->nodetype == NODE_ID && ptr1->isPointer){
-                    printf("Error: Cannot read to pointer\n");
-                    exit(1);
-                }
                 return TLookup("void");
             }
             case NODE_ALLOC:{
-                if(leftType->category != TYPE_USERDEF){
+                if(ptr1->type->category != TYPE_USERDEF){
                     printf("Error: '%s' is not a user defined type\n", ptr1->name);
                     exit(1);
                 }
@@ -39,8 +58,6 @@ struct Typetable* resolveType(int nodetype, struct ASTNode* ptr1, struct ASTNode
                 return TLookup("void");
             }
         }
-
-    struct Typetable* rightType = ptr2->type;
 
     if(ptr1->nodetype != NODE_FUNCT && (ptr1->Gentry && ptr1->Gentry->flabel != -1)){
         printf("Error: Invalid use of function\n");
@@ -57,7 +74,7 @@ struct Typetable* resolveType(int nodetype, struct ASTNode* ptr1, struct ASTNode
         case NODE_MUL:
         case NODE_DIV:
         case NODE_MOD:
-            if(isIntegerLike(leftType) && isIntegerLike(rightType))
+            if(isIntegerLike(ptr1->type) && isIntegerLike(ptr2->type))
                 return TLookup("int");
             
             printf("Type mismatch in arithmatic operation\n");
@@ -69,7 +86,7 @@ struct Typetable* resolveType(int nodetype, struct ASTNode* ptr1, struct ASTNode
         case NODE_GE:
         case NODE_EQ:
         case NODE_NE:
-            if((isIntegerLike(leftType) && isIntegerLike(rightType)) || (isStringLike(leftType) && isStringLike(rightType)))
+            if((isIntegerLike(ptr1->type) && isIntegerLike(ptr2->type)) || (isStringLike(ptr1->type) && isStringLike(ptr2->type)))
                 return TLookup("bool");
             if(ptr2->nodetype == NODE_NULL){
                 if(ptr1->type->category == TYPE_USERDEF){
@@ -85,7 +102,7 @@ struct Typetable* resolveType(int nodetype, struct ASTNode* ptr1, struct ASTNode
             exit(1);
         case NODE_AND:
         case NODE_OR:
-            if((isBoolLike(leftType) && isBoolLike(rightType)))
+            if((isBoolLike(ptr1->type) && isBoolLike(ptr2->type)))
                 return TLookup("bool");
             printf("Type mistmatch in conditional operation\n");
             exit(1);
@@ -95,33 +112,15 @@ struct Typetable* resolveType(int nodetype, struct ASTNode* ptr1, struct ASTNode
                     return TLookup("void");
             }
             else if(ptr1->nodetype == NODE_ID || ptr1->nodetype == NODE_FIELDACCESS){
-                if(strcmp(leftType->name, rightType->name) == 0 && ptr1->isPointer==ptr2->isPointer){
+                if(ptr1->type && ptr2->type && strcmp(ptr1->type->name, ptr2->type->name) == 0){
+                    return TLookup("void");
+                }
+                if(ptr1->class && ptr2->class && strcmp(ptr1->class->name, ptr2->class->name) == 0){
                     return TLookup("void");
                 }
                 printf("Type mismatch in assignment\n");
                 exit(1);
-            }else if(ptr1->nodetype == NODE_DEREF && ptr2->nodetype == NODE_DEREF){
-                if(strcmp(ptr1->ptr1->type->name, ptr2->ptr1->type->name) == 0){
-                    return TLookup("void");
-                }
-                printf("Type mismatch in assignment\n");
-                exit(1);
-            }else if(ptr1->nodetype == NODE_DEREF){
-                if(strcmp(ptr1->type->name, ptr2->type->name) == 0 && !ptr2->isPointer){
-                    return TLookup("void");
-                }
-                printf("Type mismatch in assignment\n");
-                exit(1);
-            }else if(ptr2->nodetype == NODE_DEREF){
-                if(strcmp(ptr2->type->name, ptr1->type->name) == 0 && !ptr1->isPointer){
-                    return TLookup("void");
-                }
-                printf("Type mismatch in assignment\n");
-                exit(1);
-            }else if(ptr2->nodetype == NODE_ADDR && strcmp(leftType->name, rightType->name)==0 && ptr1->isPointer){
-                    return TLookup("void");
-            }
-            else{
+            }else{
                 printf("Type mismatch in assignment\n");
                 exit(1);
             }
@@ -140,55 +139,20 @@ struct Typetable* resolveType(int nodetype, struct ASTNode* ptr1, struct ASTNode
     }
 }
 
-struct ASTNode* createDerefNode(struct ASTNode* id) {
-
-    setType(id);
-
-    if (!id->isPointer) {
-        printf("Cannot dereference a non-pointer type\n");
-        exit(1);
-    }
-
-    struct ASTNode* node = malloc(sizeof(struct ASTNode));
-
-    node->nodetype = NODE_DEREF;
-    node->ptr1 = id;
-    node->ptr2 = NULL;
-    node->type = id->type;
-    node->isPointer = false;
-
-    return node;
-}
-
-struct ASTNode* createAddrNode(struct ASTNode* id) {
-    setType(id);
-
-    if (id->nodetype != NODE_ID) {
-        printf("Cannot take address of non-variable type\n");
-        exit(1);
-    }
-
-    struct ASTNode* node = malloc(sizeof(struct ASTNode));
-
-    node->nodetype = NODE_ADDR;
-    node->ptr1 = id;
-    node->ptr2 = NULL;
-
-    node->type = id->type;
-    node->isPointer = true;
-
-    return node;
-}
-
 struct ASTNode* createTreeNode(int nodetype, struct ASTNode* ptr1, struct ASTNode* ptr2){
 
-    struct ASTNode* node = malloc(sizeof(struct ASTNode));
+    struct ASTNode* node = createNode();;
 
-    node->Gentry = NULL;
+    if(nodetype == NODE_ASSIGN){
+        if(ptr1)
+            setType(ptr1);
+        if(ptr2)
+            setType(ptr2);
+    }
+
     node->nodetype = nodetype;
     node->ptr1 = ptr1;
     node->ptr2 = ptr2;
-    node->isPointer = false;
     node->type = resolveType(nodetype, ptr1, ptr2);
 
     return node;
@@ -196,26 +160,20 @@ struct ASTNode* createTreeNode(int nodetype, struct ASTNode* ptr1, struct ASTNod
 
 
 /*-----Node for Constants and identifiers-----*/
-struct ASTNode* createLeafNode(struct Typetable* type, char* varname, int val, char* str_val){
-    struct ASTNode* node = malloc(sizeof(struct ASTNode));
-
-    node->ptr1 = NULL;
-    node->ptr2 = NULL;
-    node->ptr3 = NULL;
-    node->Gentry = NULL;
-    node->Lentry = NULL;
-    node->isPointer = false;
+struct ASTNode* createLeafNode(int nodetype, char* type, char* varname, int val, char* str_val){
+    struct ASTNode* node = createNode();;
 
     node->name = varname;
-    node->nodetype = varname?NODE_ID:NODE_CONST;
-    node->type  = type;
+    node->nodetype = nodetype;
 
     if(node->nodetype == NODE_CONST){
-        if(strcmp(type->name,"int") == 0){
+        if(strcmp(type,"int") == 0){
             node->value.intVal = val;
-        }else if(strcmp(type->name,"str") == 0){
+        }else if(strcmp(type,"str") == 0){
             node->value.strVal = str_val;
         }
+        node->type = TLookup(type);
+        return node;
     }
 
     return node;
@@ -255,17 +213,49 @@ struct ASTNode* appendArgNode(struct ASTNode* list, struct ASTNode* expr){
 
 struct ASTNode* createFunctNode(struct ASTNode* id, struct ASTNode* arglist){
     
-    setType(id);
+    if(id->name)
+        setType(id);
 
-    if(id->Gentry->flabel == -1){
-        printf("'%s' is not a function\n", id->name);
+    struct ASTNode* node = createNode();
+
+    node->nodetype = NODE_FUNCT;
+    node->ptr1 = id;
+    node->ptr1->arglist = arglist;
+
+    if(id->method){
+        struct Methodlist* method = id->method;
+        struct param* declared = method->paramlist;
+        struct ASTNode* passed = arglist;
+
+
+        while(declared && passed){
+            if(declared->type != passed->type){
+                printf("conflicting type for '%s'\n", declared->name);
+                exit(1);
+            }
+            declared = declared->next;
+            passed = passed->arglist;
+        }
+
+        if(declared || passed){
+            printf("Different number of arguments\n");
+            exit(1);
+        }
+
+        node->type = method->type;
+        return node;
+    }
+
+    if(!id->Gentry || id->Gentry->flabel == -1){
+        printf("Error: '%s' is not %s\n", id->name, (id->Gentry?"not a function":"declared"));
         exit(1);
     }
+            
     struct param* declared = id->Gentry->paramlist;
     struct ASTNode* passed = arglist;
 
     while(declared && passed){
-        if(declared->type != passed->type || declared->isPointer != passed->isPointer){
+        if(declared->type != passed->type){
             printf("conflicting type for '%s'\n", declared->name);
             exit(1);
         }
@@ -278,23 +268,7 @@ struct ASTNode* createFunctNode(struct ASTNode* id, struct ASTNode* arglist){
         exit(1);
     }
 
-    struct ASTNode* node = malloc(sizeof(struct ASTNode));
-
-    node->nodetype = NODE_FUNCT;
     node->type = id->Gentry->type;
-    node->ptr1 = id;
-    node->ptr1->arglist = arglist;
-
-    return node;
-}
-
-
-struct ASTNode* createRtnNode(struct ASTNode* rtn){
-
-    struct ASTNode* node = malloc(sizeof(struct ASTNode));
-    node->ptr1 = rtn;
-    node->type = rtn->type;
-    node->nodetype = NODE_RET;
 
     return node;
 }
@@ -305,21 +279,54 @@ struct ASTNode* createFieldAccessNode(struct ASTNode* ptr1, struct ASTNode* ptr2
         setType(ptr1);
     }
 
-    struct Typetable* type = ptr1->type;
+    struct ASTNode* node = createNode();;
+    node->nodetype = NODE_FIELDACCESS;
 
-    struct Fieldlist* field = FLookup(type->fields, ptr2->name);
-    if(!field){
-        printf("Error: '%s' does not have a field named '%s'\n", ptr1->type->name, ptr2->name);
-        exit(1);
+    bool flag = ptr1->type && ptr1->type->fields;
+    if(flag){
+        struct Fieldlist* f = FLookup(ptr1->type->fields, ptr2->name);
+        if(!f){
+            printf("Error: '%s' does not have a field named '%s'\n", ptr1->type->name, ptr2->name);
+            exit(1);
+        }
+        node->ptr1 = ptr1;
+        node->ptr2 = ptr2;
+        node->type = f->type;
+        return node;
     }
 
-    struct ASTNode* node = malloc(sizeof(struct ASTNode));
+    if(ptr1->class){
+        node->ptr1 = ptr1;
+        node->ptr2 = ptr2;
+        struct Fieldlist* f = ClassFLookup(ptr1->class, ptr2->name);
+        if(f){
+            node->type = f->type;
+            node->class = f->class;
+            return node;
+        }
+        struct Methodlist* m = ClassMLookup(ptr1->class, ptr2->name);
 
-    node->name = NULL;
-    node->nodetype = NODE_FIELDACCESS;
-    node->ptr1 = ptr1;
-    node->ptr2 = ptr2;
-    node->type = field->type;
+        if(m){
+            node->nodetype == NODE_METHOD;
+            node->type = m->type;
+            node->class = ptr1->class;
+            node->method = m;
+            return node;
+        }
+
+        printf("Error: Class '%s' do not have a member named '%s'\n", ptr1->class->name, ptr2->name);
+        exit(1);
+        
+    }
+    return node;
+}
+
+struct ASTNode* createRtnNode(struct ASTNode* rtn){
+
+    struct ASTNode* node = createNode();;
+    node->ptr1 = rtn;
+    node->type = rtn->type;
+    node->nodetype = NODE_RET;
 
     return node;
 }
@@ -327,7 +334,7 @@ struct ASTNode* createFieldAccessNode(struct ASTNode* ptr1, struct ASTNode* ptr2
 struct ASTNode* createDynamicNode(int nodetype, struct ASTNode* id){
 
     if(nodetype == NODE_NULL || nodetype == NODE_INITIALIZE){
-        struct ASTNode* node = malloc(sizeof(struct ASTNode));
+        struct ASTNode* node = createNode();;
         node->nodetype = nodetype;
         return node;
     }
@@ -337,9 +344,43 @@ struct ASTNode* createDynamicNode(int nodetype, struct ASTNode* id){
         exit(1);
     }
 
-    struct ASTNode* node = malloc(sizeof(struct ASTNode));
+    struct ASTNode* node = createNode();;
     node->nodetype = nodetype;
     node->ptr1 = id;
 
+    return node;
+}
+
+struct ASTNode* createClassNode(int nodetype, struct ASTNode* id, char* baseClass){
+    
+    if(id->name)
+        setType(id);
+
+    struct ASTNode* node = createNode();;
+    node->nodetype = nodetype;
+    node->ptr1 = id;
+
+    if(nodetype == NODE_DELETE){
+        if(!id->class){
+            printf("Error: mismatch type in deleting\n");
+            exit(1);
+        }
+
+    }else{
+
+        struct Classtable* class = CLookup(baseClass);
+
+        if(class == NULL){
+            printf("Error: '%s' is not a class datatype\n", baseClass);
+            exit(1);
+        }
+        if(!id->class){
+            printf("Error: left side is not a class type\n");
+            exit(1);
+        }
+
+        node->class = class;
+    }
+    
     return node;
 }
