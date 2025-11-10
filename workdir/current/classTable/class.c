@@ -4,6 +4,7 @@
 
 struct Classtable* CTable = NULL;
 static int Flabel = 0;
+static int fieldIndex = 0;
 int funcposition = 0;
 
 struct Classtable* CLookup(char* name){
@@ -81,6 +82,7 @@ void ClassFInstall(struct Classtable* class, char* type, char* name){
     node->type = TLookup(type);
     node->class = CLookup(type);
     node->next = NULL;
+    node->fieldIndex = fieldIndex++;
 
     if(class->fields == NULL){
         class->fields = node;
@@ -218,7 +220,7 @@ void validateMethod(struct Typetable* type, char* id, struct param* paramlist, s
         exit(1);
     }
 
-    int relativeAddr = -2;
+    int relativeAddr = -3;
     struct LSymbol* tempLST = LST;
 
     struct param* tempParamlist = paramlist;
@@ -228,7 +230,7 @@ void validateMethod(struct Typetable* type, char* id, struct param* paramlist, s
     }
 
     while(tempLST){
-        if(relativeAddr == -2)
+        if(relativeAddr == -3)
             relativeAddr = 1;
         tempLST->binding = relativeAddr++;
         tempLST=tempLST->next;
@@ -249,7 +251,7 @@ void validateAndSetType(struct ASTNode* node){
     if(node->name){
         setType(node);
     }else{
-        if(node->class && node->nodetype != NODE_METHOD){
+        if(node->nodetype == NODE_METHOD){
             printf("Error: Missing arguments\n");
             exit(1);
         }

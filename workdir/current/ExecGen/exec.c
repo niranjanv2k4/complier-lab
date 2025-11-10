@@ -6,6 +6,12 @@ int codeGen(struct ASTNode* root, FILE* output);
 int getAddr(FILE* output, struct ASTNode* node){
 
     int reg = getReg();
+    if(node->nodetype == NODE_SELF){
+        fprintf(output, "MOV R%d, BP\n", reg);
+        fprintf(output, "SUB R%d, 3\n", reg);
+        // fprintf(output, "MOV R%d, [R%d]\n", reg, reg);
+        return reg;
+    }
 
     if(node->Lentry){
         fprintf(output, "MOV R%d, BP\n", reg);
@@ -31,22 +37,15 @@ int getIdentifierAddr(FILE* output, struct ASTNode* root){
     int addr;
 
     switch(root->nodetype){
-        case NODE_DEREF:{
-            addr = getAddr(output, root->ptr1);
-            fprintf(output, "MOV R%d, [R%d]\n", addr, addr);
-            break;
-        }
-        case NODE_ADDR: {
-            addr = getAddr(output, root->ptr1);
-            break;
-        }
         case NODE_FIELDACCESS: {
             addr = getIdentifierAddr(output, root->ptr1);
-            
             fprintf(output, "MOV R%d, [R%d]\n", addr, addr);
-
-            struct Fieldlist* field = FLookup(root->ptr1->type->fields, root->ptr2->name);
-            fprintf(output, "ADD R%d, %d\n", addr, field->fieldIndex);
+            struct Fieldlist* f;
+            if(root->ptr1->type)
+                f = FLookup(root->ptr1->type->fields, root->ptr2->name);
+            else
+                f = ClassFLookup(current_class, root->ptr2->name);
+            fprintf(output, "ADD R%d, %d\n", addr, f->fieldIndex);
             break;
         }
         default: {
@@ -118,7 +117,6 @@ int evaluate(struct ASTNode* root, FILE* output){
             fprintf(output, "MOV R%d, [R%d]\n", addr,addr);
             return addr;
         }
-        
         case NODE_FUNCT:{
 
             /* storing the used registers */
@@ -135,7 +133,7 @@ int evaluate(struct ASTNode* root, FILE* output){
             while(tempArglist){
                 int res;
 
-                if(tempArglist->type->category == TYPE_PRIMITIVE)
+                if(tempArglist->type && tempArglist->type->category == TYPE_PRIMITIVE)
                     res = evaluate(tempArglist, output);
                 else{
                     res = getIdentifierAddr(output, tempArglist);
@@ -147,11 +145,26 @@ int evaluate(struct ASTNode* root, FILE* output){
                 tempArglist= tempArglist->arglist;
             }
 
+            int self;
+            if(root->ptr1->method){
+                self = getIdentifierAddr(output, root->ptr1->ptr1);
+                fprintf(output, "MOV R%d, [R%d]\n", self, self);
+                fprintf(output, "PUSH R%d\n", self);
+            }
+
             fprintf(output, "PUSH R%d\n", res);
-            fprintf(output, "CALL __F%d\n", root->ptr1->Gentry->flabel);
+            if(root->ptr1->Gentry)
+                fprintf(output, "CALL __F%d\n", root->ptr1->Gentry->flabel);
+            else
+                fprintf(output, "CALL __C%d\n", root->ptr1->method->Flabel);
 
             /* taking the return value */
             fprintf(output, "POP R%d\nBRKP\n", res);
+            
+            if(root->ptr1->method){
+                fprintf(output, "POP R%d\n", self);
+                freeReg(self);
+            }
             
             int temp = getReg();
             tempArglist = root->ptr1->arglist;
@@ -367,6 +380,9 @@ void generateRptUtlBlock(FILE* output, struct ASTNode* root){
 }
 
 int codeGen(struct ASTNode* root, FILE* output){
+    if(!root){
+        return -1;
+    }
     
     switch (root->nodetype){
         case NODE_ADD:
@@ -389,7 +405,7 @@ int codeGen(struct ASTNode* root, FILE* output){
             freeReg(reg);
             return -1;
         }
-
+        case NODE_NEW:
         case NODE_ALLOC:{
             int temp = getReg(), res = getReg();
 
@@ -403,11 +419,12 @@ int codeGen(struct ASTNode* root, FILE* output){
             int leftAddr = getIdentifierAddr(output, root->ptr1);
 
             fprintf(output, "MOV [R%d], R%d\n", leftAddr, res);
+            freeReg(leftAddr);
             freeReg(temp);
             freeReg(res);
             return -1;
         }
-
+        case NODE_DELETE: 
         case NODE_FREE: {
             int addr = getIdentifierAddr(output, root->ptr1);
             int temp = getReg();
@@ -527,7 +544,7 @@ int codeGen(struct ASTNode* root, FILE* output){
     }
 }
 
-void generateFunct(FILE* output, struct ASTNode* id, struct ASTNode* code){
+void generateFunct(FILE* output, char* id, struct ASTNode* code){
 
     if(id == NULL){
         fprintf(output, "MAIN:\n");
@@ -544,25 +561,51 @@ void generateFunct(FILE* output, struct ASTNode* id, struct ASTNode* code){
 
         return;
     }
-
-    fprintf(output, "__F%d:\n", id->Gentry->flabel);
-
-    fprintf(output, "BRKP\n");
-
-    fprintf(output, "PUSH BP\nMOV BP, SP\n");
     
-    struct param* tempParamlist = id->Gentry->paramlist;
-    struct LSymbol* tempLST = LST;
+    if(!isInsideClass){
+        struct ASTNode* functNode = createLeafNode(NODE_ID, NULL, id, 0, 0);
+        setGType(functNode);
+
+        fprintf(output, "__F%d:\n", functNode->Gentry->flabel);
+
+        fprintf(output, "BRKP\n");
+
+        fprintf(output, "PUSH BP\nMOV BP, SP\n");
+        
+        struct param* tempParamlist = functNode->Gentry->paramlist;
+        struct LSymbol* tempLST = LST;
 
 
-    while(tempParamlist){
-        tempParamlist = tempParamlist->next;
-        tempLST = tempLST->next;
-    }
+        while(tempParamlist){
+            tempParamlist = tempParamlist->next;
+            tempLST = tempLST->next;
+        }
+        while(tempLST){
+            fprintf(output, "PUSH R0\n");
+            tempLST = tempLST->next;
+        }
 
-    while(tempLST){
-        fprintf(output, "PUSH R0\n");
-        tempLST = tempLST->next;
+    }else{
+
+        struct Methodlist* method = ClassMLookup(current_class, id);
+
+        fprintf(output, "__C%d:\n", method->Flabel);
+
+        fprintf(output, "BRKP\n");
+        fprintf(output, "PUSH BP\nMOV BP, SP\n");
+
+        struct param* tempParamlist = method->paramlist;
+        struct LSymbol* tempLST = LST;
+
+
+        while(tempParamlist){
+            tempParamlist = tempParamlist->next;
+            tempLST = tempLST->next;
+        }
+        while(tempLST){
+            fprintf(output, "PUSH R0\n");
+            tempLST = tempLST->next;
+        }
     }
 
     codeGen(code, output);
@@ -585,6 +628,26 @@ void setHeader(FILE* output){
     if(headerSet){
         fprintf(output, "0\n2056\n0\n0\n0\n0\n0\n0\n");
         fprintf(output, "MOV SP, %d\n", currBinding + 2);
+
+        int start = getNewLabel(), end = getNewLabel();
+        int baseAddr = getReg(), nextAddr = getReg(), temp = getReg();
+
+        fprintf(output, "MOV R%d, 1024\n", baseAddr);
+        fprintf(output, "MOV R%d, R%d\n", nextAddr, baseAddr);
+        fprintf(output, "L%d:\n", start);
+        fprintf(output, "ADD R%d, %d\n", nextAddr, HB_SIZE);
+        fprintf(output, "MOV R%d, 2048\n", temp);
+        fprintf(output, "GE R%d, R%d\n", temp, nextAddr);
+        fprintf(output, "JZ R%d, L%d\n", temp, end);
+        fprintf(output, "MOV [R%d], R%d\n", baseAddr, nextAddr);
+        fprintf(output, "MOV R%d, R%d\n", baseAddr, nextAddr);
+        fprintf(output, "JMP L%d\n", start);
+        fprintf(output, "L%d:\n", end);
+
+        freeReg(baseAddr);
+        freeReg(nextAddr);
+        freeReg(temp);
+
         fprintf(output, "JMP MAIN\n");
         headerSet = false;
     }

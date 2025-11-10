@@ -49,6 +49,7 @@ struct GSymbol* insertToGlobal(char* id, int size, int rowSize, int colSize, str
     node->name = id;
 
     node->size = (colSize*rowSize != 0)?colSize*rowSize:1;
+    // printf("\n%s\n", id);
     node->type = current_type;
     node->class = current_class;
 
@@ -87,8 +88,9 @@ struct GSymbol* insertToGlobal(char* id, int size, int rowSize, int colSize, str
 struct param* createParam(char* type_name, char* id){
 
     struct Typetable* type = TLookup(type_name);
+    struct Classtable* class = CLookup(type_name);
 
-    if(type == NULL){
+    if(!type && !class){
         printf("Error: unknown type '%s' encountered\n", type_name);
         exit(1);
     }
@@ -98,6 +100,7 @@ struct param* createParam(char* type_name, char* id){
 
     node->name = id;
     node->type = type;
+    node->class = class;
 
     LST = addParamtoLST(node);
 
@@ -131,7 +134,7 @@ struct LSymbol* addParamtoLST(struct param* id) {
     
     node->name = strdup(id->name);
     node->type = id->type;
-    node->class = CLookup(id->type->name);
+    node->class = id->class;
 
     node->next = NULL;
 
@@ -158,6 +161,11 @@ struct LSymbol* createLST(char* id, char* type){
     node->name = id;
     node->type = TLookup(type);
     node->class = CLookup(type);
+
+    if(!node->type && !node->class){
+        printf("Error: '%s' not defined\n", type);
+        exit(1);
+    }
     node->next = NULL;
 
     if(LST == NULL)
@@ -178,7 +186,7 @@ struct LSymbol* createLST(char* id, char* type){
 void setGType(struct ASTNode* id){
     struct GSymbol* temp = GSTLookup(id->name);
     if(temp==NULL){
-        printf("Variable '%s' not declared.\n", id->name);
+        printf("Error: Variable '%s' not declared.\n", id->name);
         exit(1);
     }
 
@@ -223,6 +231,7 @@ void validateFunct(struct Typetable* type, char* id, struct param* paramlist, st
         }
         temp = temp->next;
     }
+    printGST();
 
     if(temp==NULL){
         printf("Error: No function '%s' declared\n", id);
@@ -231,8 +240,8 @@ void validateFunct(struct Typetable* type, char* id, struct param* paramlist, st
         printf("Error: '%s' is not a function\n", id);
         exit(1);
     }
-    else if(type != temp->type || return_val->ptr2->type != temp->type){
-        printf("Error: Conflicting return types for '%s'\n", temp->name);
+    else if(return_val->ptr2->type != temp->type){
+        printf("Error: Conflicting return types for '%s' '%s'\n", temp->name, return_val->ptr2->type->name);
         exit(1);
     }
 
@@ -355,7 +364,7 @@ void printGST(){
             printf("  ");
             struct param* list = temp->paramlist;
             while(list){
-                printf("%s %s", list->type->name, list->name);
+                printf("%s %s", (list->type?list->type->name:list->class->name), list->name);
                 if(list->next) printf(", ");
                 list = list->next;
             }
@@ -363,7 +372,7 @@ void printGST(){
             printf("  ");
             struct Fieldlist* list = temp->type->fields;
             while(list){
-                printf("%s %s", list->type->name, list->name);
+                printf("%s %s", (list->type?list->type->name:list->class->name), list->name);
                 if(list->next) printf(", ");
                 list = list->next;
             }

@@ -87,7 +87,7 @@ program     :   TypeDefBlock ClassDefBlock GDeclBlock FDefBlock MainBlock  {   e
 
 /* --------------------------------------------------------------------------------------------------- */
 
-ClassDefBlock   : CLASS { isInsideClass = true;  } ClassDefList  {  isInsideClass = false;  }ENDCLASS
+ClassDefBlock   : CLASS { isInsideClass = true;  } ClassDefList  ENDCLASS {  isInsideClass = false;current_class == NULL;  }
                 |
                 ;
 ClassDefList    : ClassDefList ClassDef
@@ -138,11 +138,11 @@ GDeclBlock  :   DECL GDeclList ENDDECL          {   }
             ;
 GDeclList   :   GDeclList GDecl
             |   GDecl
-GDecl       :   Type GidList EOL                {     }
+GDecl       :   Type { current_type = TLookup($1);  }   GidList EOL  {     }
             ;
-Type        :   INT                             {   $$ = $1;current_type = TLookup("int");      }
-            |   STR                             {   $$ = $1;current_type = TLookup("str");      }
-            |   ID                              {   $$ = $1;current_type = TLookup($1);  }
+Type        :   INT                             {  $$ = $1; }
+            |   STR                             {  $$ = $1; }
+            |   ID                              {  $$ = $1; }
             ;
 GidList     :   GidList ',' Gid
             |   Gid
@@ -158,12 +158,12 @@ Gid         :   ID                              {   GST = insertToGlobal($1, 1, 
 FDefBlock   :   FDefBlock Fdef                  {      }
             |   Fdef                            {      }
             ;
-Fdef        :   Type ID '(' ParamList ')' '{' LDeclBlock Coderegion '}'      {   
+Fdef        :   Type ID '(' ParamList ')' '{' LDeclBlock Coderegion '}'     {  setHeader(output);
                                                                                 if(isInsideClass)
                                                                                     validateMethod(TLookup($1), $2, $4, $8); 
                                                                                 else
                                                                                     validateFunct(TLookup($1), $2, $4, $8); 
-                                                                                // generateFunct(output, $2, $8);
+                                                                                generateFunct(output, $2, $8);
                                                                                 clearLST();  
                                                                             }
             ;
@@ -173,7 +173,7 @@ Fdef        :   Type ID '(' ParamList ')' '{' LDeclBlock Coderegion '}'      {
 MainBlock   :   INT MAIN '('')' '{' LDeclBlock Coderegion '}'               {   
                                                                                 setHeader(output);  
                                                                                 validateMain($7);
-                                                                                // generateFunct(output, NULL, $7);
+                                                                                generateFunct(output, NULL, $7);
                                                                                 printLST("MAIN");
                                                                                 clearLST();
                                                                             }
@@ -206,6 +206,7 @@ IdList      :   IdList ',' ID                       {   LST = createLST($3, Ldat
 /* ---------------------------------------------------------------------------------- */
 
 Coderegion  :   T_BEGIN Slist RtnStmt T_END         {   $$ = createTreeNode(NODE_CONNECTOR, $2, $3);    }
+            |   T_BEGIN RtnStmt T_END               {   $$ = createTreeNode(NODE_CONNECTOR, NULL, $2);    }
             ;
 RtnStmt     :   RETURN expr EOL                     {   $$ = createRtnNode($2); }
             ;
@@ -264,7 +265,7 @@ expr        :   expr ADD expr                       {   $$ = createTreeNode(NODE
             |   NULL_VAL                            {   $$ = createDynamicNode(NODE_NULL, NULL);    }
             ;
 IDENTIFIERS :   ID                                  {   $$ = createLeafNode(NODE_ID, NULL, $1, 0, NULL); }
-            |   SELF                                {   $$ = createLeafNode(NODE_SELF, NULL, "self", 0, NULL);  }
+            |   SELF                                {   $$ = createLeafNode(NODE_SELF, NULL, NULL, 0, NULL);  }
             |   ID '[' expr ']'                     {   $$ = createArrayNode(createLeafNode(NODE_ID, NULL, $1, 0, NULL), NULL, $3); }
             |   IDENTIFIERS '(' ArgList ')'         {   $$ = createFunctNode($1, $3);   }
             |   IDENTIFIERS '.' IDENTIFIERS         {   $$ = createFieldAccessNode($1, $3);    }

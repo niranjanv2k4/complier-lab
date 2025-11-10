@@ -91,7 +91,8 @@ struct GSymbol{
 struct param{
     char* name;
     bool isPointer;
-    struct Typetable *type; 
+    struct Typetable *type;
+    struct Classtable *class; 
     struct param* next;
 };
 

@@ -6,6 +6,8 @@
 #include "../symbolTable/symbol.h"
 #include "../classTable/class.h"
 
+extern bool isInsideClass;
+
 struct ASTNode* createLeafNode(int nodetype, char* type, char* varname, int val, char* str_val);
 struct ASTNode* createTreeNode(int nodetype, struct ASTNode* left, struct ASTNode* right);
 

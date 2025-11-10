@@ -1,37 +1,99 @@
-type
-  node {
-    int val;
-    node next;
-  }
-endtype
 class
   test_class{
     decl
-    int x;
-    int y;
-      test_class p1;
-    int max(int x, int y);
-      int print(int a);
+      int max_val;
+      int max(int x, int y);
+      int setval(int a);
+      int print();
+      int getval();
     enddecl
 
-    int print(int a){
+    int setval(int a){
       begin
-        write(1);
+        self.max_val = a;
         return 0;
+      end
+    }
+    int print(){
+      begin
+        write(self.max_val);
+        return 0;
+      end
+    }
+    int getval(){
+      decl
+        int temp;
+      enddecl
+      begin
+        temp = self.max_val;
+        return temp;
+      end
+    }
+  }
+
+  test_class2{
+    decl
+      int temp;
+      test_class t1;
+      int set_t1(int a);
+      int print_t1();
+      int getvalt1();
+    enddecl
+    int set_t1(int a){
+      begin
+      self.t1 = new(test_class);
+        self.temp = self.t1.setval(a);
+        return 0;
+      end
+    }
+    int print_t1(){
+      begin
+        self.temp = self.t1.print();
+        return 0;
+      end
+    }
+    int getvalt1(){
+      decl
+        int temp;
+      enddecl
+      begin
+        temp = self.t1.getval();
+        return temp;
       end
     }
   }
 
 endclass
 
+decl
+  int max(test_class2 t1, test_class2 t2);
+enddecl
+
+int max(test_class2 t1, test_class2 t2){
+  begin
+    if(t1.getvalt1() > t2.getvalt1())then
+    write("t1 : ");
+      write(t1.getvalt1());
+    else
+    write("t2 : ");
+      write(t2.getvalt1());
+    endif;
+    return 0;
+  end
+}
 int main() {
   decl
-    test_class local11, local12;
-    int temp;
+    int temp, a, b;
+    test_class2 local21, local22;
   enddecl
   begin
-  local11.p1 = new (test_class);
-    local12 = local11;
+    local21 = new(test_class2);
+    local22 = new(test_class2);
+    read(a);
+    read(b);
+    temp = local21.set_t1(a);
+    temp = local22.set_t1(b);
+    temp = max(local21, local22);
     return 0;
   end
 }

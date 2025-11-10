@@ -11,7 +11,7 @@
 
 %}
 
-labels   (L[0-9]+|__F[0-9]+|MAIN|EXIT|ALLOC|WRITE|READ|FREE)
+labels   (L[0-9]+|__F[0-9]+|MAIN|EXIT|ALLOC|WRITE|READ|FREE|__C[0-9]+)
 
 
 %%
