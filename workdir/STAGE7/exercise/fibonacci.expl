@@ -1,0 +1,49 @@
+ 	
+	class
+    fact{
+      decl
+        int x;
+        int findfib(int n);
+      enddecl
+      int findfib(int n){
+        decl
+          int fib;
+          int temp1, temp2, temp;
+        enddecl
+        begin
+          fib = 0;
+          temp1 = 1;
+          temp2 = 0;
+          temp = 0;
+          while(temp < n - 1)do
+            fib = temp1 + temp2;
+            temp2 = temp1;
+            temp1 = fib;
+            temp = temp + 1;
+          endwhile;
+          return temp2;
+        end
+      }
+    }
+
+endclass
+decl
+	fact obj;
+enddecl
+int main(){
+	decl
+    int x,n;
+    int temp;
+	enddecl
+	begin
+    obj=new(fact);
+    read(n);
+    temp = 0;
+    while(n > 0)do
+      temp =temp  + obj.findfib(n);
+      n = n - 1;
+    endwhile;
+    write(temp);
+    return 1;
+  end
+}
