@@ -9,7 +9,6 @@ int getAddr(FILE* output, struct ASTNode* node){
     if(node->nodetype == NODE_SELF){
         fprintf(output, "MOV R%d, BP\n", reg);
         fprintf(output, "SUB R%d, 3\n", reg);
-        // fprintf(output, "MOV R%d, [R%d]\n", reg, reg);
         return reg;
     }
 
@@ -131,15 +130,7 @@ int evaluate(struct ASTNode* root, FILE* output){
             /* pushing arguments */
             struct ASTNode* tempArglist = root->ptr1->arglist;
             while(tempArglist){
-                int res;
-
-                if(tempArglist->type && tempArglist->type->category == TYPE_PRIMITIVE)
-                    res = evaluate(tempArglist, output);
-                else{
-                    res = getIdentifierAddr(output, tempArglist);
-                    fprintf(output, "MOV R%d, [R%d]\n", res, res);
-                }
-
+                int res = evaluate(tempArglist, output);;
                 fprintf(output, "PUSH R%d\n", res);
                 freeReg(res);
                 tempArglist= tempArglist->arglist;
