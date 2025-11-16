@@ -9,9 +9,9 @@ gcc y.tab.c lex.yy.c ./symbolTable/symbol.c ./Conditionals/jump.c TreeGen/tree.c
 
 ./compiler "$INPUT_FILE"
 
-# cd ./label
+cd ./label
 
-# lex label.l
-# gcc lex.yy.c label.c -o translator
+lex label.l
+gcc lex.yy.c label.c -o translator
 
-# ./translator ../output.xsm
+./translator ../output.xsm

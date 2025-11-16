@@ -34,6 +34,20 @@ bool checkType(struct ASTNode* id, int category){
     return id->Gentry->category == category;
 }
 
+int isClassChildOf(struct Classtable* child, struct Classtable* parent) {
+    if (!child || !parent)
+        return 0;
+
+    struct Classtable* temp = child;
+    while (temp) {
+        if (temp == parent)
+            return 1;   
+        temp = temp->parent;
+    }
+
+    return 0;
+}
+
 struct Typetable* resolveType(int nodetype, struct ASTNode* ptr1, struct ASTNode* ptr2) {
 
     if(!ptr2){
@@ -112,11 +126,17 @@ struct Typetable* resolveType(int nodetype, struct ASTNode* ptr1, struct ASTNode
                 if(ptr1->type && ptr2->type && strcmp(ptr1->type->name, ptr2->type->name) == 0){
                     return TLookup("void");
                 }
-                if(ptr1->class && ptr2->class && strcmp(ptr1->class->name, ptr2->class->name) == 0){
-                    return TLookup("void");
+                if (ptr1->class && ptr2->class) {
+                    if (isClassChildOf(ptr2->class, ptr1->class)){
+                        ptr1->class = ptr2->class;
+                        return TLookup("void");
+                    }
+                    
+                    printf("Error: Incompatible class assignment '%s' to '%s'\n",
+                        ptr2->class->name, ptr1->class->name);
+                    exit(1);
                 }
                 printf("Type mismatch in assignment\n");
-                // printf("%s", ptr1->ptr1->ptr1->ptr1->name);
                 exit(1);
             }else{
                 printf("Type mismatch in assignment\n");
@@ -223,15 +243,21 @@ struct ASTNode* createFunctNode(struct ASTNode* id, struct ASTNode* arglist){
     node->ptr1 = id;
     node->ptr1->arglist = arglist;
 
-    if(id->method){
-        struct Methodlist* method = id->method;
+    if(id->nodetype == NODE_METHOD){
+        struct Methodlist* method = ClassMLookup(id->class, id->ptr2->name, NULL, arglist, NULL);
+
+        if(!method){
+            printf("Error: No method named '%s' defined in class '%s'\n", id->ptr2->name, id->class->name);
+            exit(1);
+        }
+
         struct param* declared = method->paramlist;
         struct ASTNode* passed = arglist;
 
 
         while(declared && passed){
             if(declared->type != passed->type){
-                printf("conflicting type for '%s'\n", declared->name);
+                printf("Error: conflicting type for '%s'\n", declared->name);
                 exit(1);
             }
             declared = declared->next;
@@ -242,7 +268,7 @@ struct ASTNode* createFunctNode(struct ASTNode* id, struct ASTNode* arglist){
             printf("Different number of arguments\n");
             exit(1);
         }
-
+        node->method = method;
         node->type = method->type;
         return node;
     }
@@ -300,28 +326,26 @@ struct ASTNode* createFieldAccessNode(struct ASTNode* ptr1, struct ASTNode* ptr2
         node->ptr1 = ptr1;
         node->ptr2 = ptr2;
         struct Fieldlist* f = ClassFLookup(ptr1->class, ptr2->name);
-        if(f){
-            if(ptr1->nodetype == NODE_SELF){
-                node->type = f->type;
-                node->class = f->class;
-                return node;
+        if(f && ptr1->nodetype == NODE_SELF){
+            if(ptr1->class->parent){
+                struct Fieldlist* pf = ClassFLookup(ptr1->class->parent, ptr2->name);
+                if(pf){
+                    if(pf->isProtected){
+                        node->type = pf->type;
+                        node->class = pf->class;
+                        return node;
+                    }
+                    printf("Error: Cannot access '%s'\n", ptr2->name);
+                    exit(1);
+                }
             }
-            printf("Error: Cannot access '%s'\n", ptr2->name);
-            exit(1);
-        }
-        struct Methodlist* m = ClassMLookup(ptr1->class, ptr2->name);
-
-        if(m){
-            node->nodetype == NODE_METHOD;
-            node->type = m->type;
-            node->class = ptr1->class;
-            node->method = m;
+            node->type = f->type;
+            node->class = f->class;
             return node;
         }
 
-        printf("Error: Class '%s' do not have a member named '%s'\n", ptr1->class->name, ptr2->name);
-        exit(1);
-        
+        node->nodetype = NODE_METHOD;
+        node->class = ptr1->class;
     }
     return node;
 }
@@ -365,27 +389,31 @@ struct ASTNode* createClassNode(int nodetype, struct ASTNode* id, char* baseClas
     node->nodetype = nodetype;
     node->ptr1 = id;
 
-    if(nodetype == NODE_DELETE){
-        if(!id->class){
-            printf("Error: mismatch type in deleting\n");
-            exit(1);
-        }
-
-    }else{
+    if(!id->class){
+        printf("Error: '%s' is not of class type\n", id->name);
+        exit(1);
+    }
+    
+    if (nodetype == NODE_NEW) {
 
         struct Classtable* class = CLookup(baseClass);
-
-        if(class == NULL){
+        if (class == NULL) {
             printf("Error: '%s' is not a class datatype\n", baseClass);
             exit(1);
         }
-        if(!id->class){
-            printf("Error: left side is not a class type\n");
+
+        struct Classtable* idClass = id->class;
+
+        if (!isClassChildOf(class, idClass)) {
+            printf("Error: Conflicting class types. '%s' is not derived from '%s'\n",
+                class->name, idClass->name);
             exit(1);
         }
 
-        node->class = class;
+        node->class = class; 
     }
+
+
     
     return node;
 }

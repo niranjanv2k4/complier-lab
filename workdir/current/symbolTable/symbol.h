@@ -33,4 +33,6 @@ void printLST(char* name);
 
 void validateMain(struct ASTNode* node);
 
+int getMem(int size);
+
 #endif

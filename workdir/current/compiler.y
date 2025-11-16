@@ -9,7 +9,7 @@
     #include "./typeTable/type.h"
     #include "./classTable/class.h"
 
-    int yyerror();
+    void yyerror(const char* error);
     int yylex();
 
     FILE *output;
@@ -19,9 +19,13 @@
     struct Typetable* current_type;
     struct Classtable* current_class;
 
-    bool isInsideClass = false;
-
+    bool classDef = false;
+    bool isProtected = false;
     char* Ldatatype = NULL;
+
+    extern int yylineno;      // Line number (from lexer)
+    extern char *yytext;      // Current token text (from lexer)
+    extern int yychar;        // Current token code (from parser)
 
 
 %}
@@ -47,7 +51,7 @@
 %token <string> INT STR ID
 %token MAIN
 %token TYPE ENDTYPE ALLOC INITIALIZE FREE NULL_VAL
-%token CLASS ENDCLASS EXTENDS NEW DELETE SELF
+%token CLASS ENDCLASS EXTENDS NEW DELETE SELF PROTECTED
 
 %token  RETURN
 
@@ -80,20 +84,20 @@
 
 %%
 
-program     :   TypeDefBlock ClassDefBlock GDeclBlock FDefBlock MainBlock  {   exitProg(output);PrintClassTable();  }
-            |   TypeDefBlock ClassDefBlock GDeclBlock MainBlock            {   exitProg(output);PrintClassTable();  }
-            |   TypeDefBlock ClassDefBlock MainBlock                       {   exitProg(output);PrintClassTable();  }
+program     :   TypeDefBlock ClassDefBlock GDeclBlock FDefBlock MainBlock   {   exitProg(output);   }
+            |   TypeDefBlock ClassDefBlock GDeclBlock MainBlock             {   exitProg(output);   }
+            |   TypeDefBlock ClassDefBlock MainBlock                        {   exitProg(output);   }
             ;
 
 /* --------------------------------------------------------------------------------------------------- */
 
-ClassDefBlock   : CLASS { isInsideClass = true;  } ClassDefList  ENDCLASS {  isInsideClass = false;current_class == NULL;  }
-                |
+ClassDefBlock   : CLASS { classDef = true;  } ClassDefList  ENDCLASS        {  classDef = false; current_class == NULL; PrintClassTable();}
+                |                                                           {    }
                 ;
 ClassDefList    : ClassDefList ClassDef
                 | ClassDef
                 ;
-ClassDef        : Cname '{'DECL Fieldlists MethodDecl ENDDECL MethodDefns '}'   
+ClassDef        : Cname '{'DECL Fieldlists MethodDecl ENDDECL {   updateClassEntry(); } MethodDefns '}' { current_class = NULL; }
                 ;
 Cname           : ID       	                                                {   current_class = CInstall($1, NULL);}         
                 | ID EXTENDS ID	                                            {   current_class = CInstall($1, $3);}
@@ -101,7 +105,8 @@ Cname           : ID       	                                                {   
 Fieldlists 	    : Fieldlists Fld   
 		        |
                 ;     
-Fld             : Type ID EOL		                                        {   ClassFInstall(current_class, $1, $2);} 
+Fld             : Type ID EOL		                                        {   ClassFInstall(current_class, $1, $2, isProtected);} 
+                |  PROTECTED                                                {   isProtected = true; }
                 ;
 MethodDecl      : MethodDecl MDecl 
 	            | MDecl 
@@ -125,11 +130,11 @@ TypeDefList     :   TypeDefList TypeDef
 TypeDef         :   ID  { TInstall($1, 0, NULL, TYPE_USERDEF); } '{' FieldDeclList '}'   {   updateUserDefined($1, $4); }
                 ;
 
-FieldDeclList   :   FieldDeclList FieldDecl       {   $$ = appendField($1, $2);   }
-                |   FieldDecl                     {   $$ = $1; }
+FieldDeclList   :   FieldDeclList FieldDecl     {   $$ = appendField($1, $2);   }
+                |   FieldDecl                   {   $$ = $1; }
                 ;
 
-FieldDecl       :   Type ID EOL               {   $$ = createField($1, $2); }
+FieldDecl       :   Type ID EOL                 {   $$ = createField($1, $2); }
                 ;
 /* -------------------------------------------------------------------------------------------------- */
 
@@ -138,7 +143,7 @@ GDeclBlock  :   DECL GDeclList ENDDECL          {   }
             ;
 GDeclList   :   GDeclList GDecl
             |   GDecl
-GDecl       :   Type { current_type = TLookup($1);  }   GidList EOL  {     }
+GDecl       :   Type { current_type = TLookup($1); current_class = CLookup($1); }   GidList EOL  {     }
             ;
 Type        :   INT                             {  $$ = $1; }
             |   STR                             {  $$ = $1; }
@@ -158,12 +163,12 @@ Gid         :   ID                              {   GST = insertToGlobal($1, 1, 
 FDefBlock   :   FDefBlock Fdef                  {      }
             |   Fdef                            {      }
             ;
-Fdef        :   Type ID '(' ParamList ')' '{' LDeclBlock Coderegion '}'     {  setHeader(output);
-                                                                                if(isInsideClass)
+Fdef        :   Type ID '(' ParamList ')' '{' LDeclBlock Coderegion '}'     {   
+                                                                                if(classDef)
                                                                                     validateMethod(TLookup($1), $2, $4, $8); 
                                                                                 else
                                                                                     validateFunct(TLookup($1), $2, $4, $8); 
-                                                                                generateFunct(output, $2, $8);
+                                                                                generateFunct(output, $2, $8, $4);
                                                                                 clearLST();  
                                                                             }
             ;
@@ -171,9 +176,8 @@ Fdef        :   Type ID '(' ParamList ')' '{' LDeclBlock Coderegion '}'     {  s
 /* --------------------------------------------------------------------------------- */
 
 MainBlock   :   INT MAIN '('')' '{' LDeclBlock Coderegion '}'               {   
-                                                                                setHeader(output);  
                                                                                 validateMain($7);
-                                                                                generateFunct(output, NULL, $7);
+                                                                                generateFunct(output, NULL, $7, NULL);
                                                                                 printLST("MAIN");
                                                                                 clearLST();
                                                                             }
@@ -185,7 +189,7 @@ ParamList   :   ParamList ',' Param     {   $$ = appendParam($1, $3); }
             |   Param                   {   $$ = $1; }
             |                           {   $$ = NULL; }
             ;
-Param       :   Type ID                  {   $$ = createParam($1, $2);   }
+Param       :   Type ID                 {   $$ = createParam($1, $2);   }
             ;
 
 /* ------------------------------------------------------------------------------------ */
@@ -279,9 +283,19 @@ ArgList     :   ArgList ',' expr                    {   $$ = appendArgNode($1, $
 
 extern FILE* yyin;
 
-int yyerror(const char* s){
-    printf("Error: %s\n", s);
-    return 1;
+void yyerror(const char* error) {
+    fprintf(stderr, "\nSyntax error at line %d: %s\n", yylineno, error);
+
+    if (yytext && *yytext) {
+        fprintf(stderr, "    Offending token: '%s'\n", yytext);
+    }
+
+    // If yychar is defined, print its numeric ID too (optional)
+    if (yychar != YYEMPTY) {
+        fprintf(stderr, "    Token code: %d\n", yychar);
+    }
+
+    exit(1);
 }
 
 int main(int argc, char **argv){
@@ -295,8 +309,10 @@ int main(int argc, char **argv){
     }
     TypeTableCreate();
     output = fopen("output.xsm", "w");
+    setHeader(output);
     yyparse();
-    printGST();
+    /* printGST(); */
+    
     fclose(output);
     return 0;
 }

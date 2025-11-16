@@ -95,11 +95,12 @@ extern int yydebug;
     NEW = 301,
     DELETE = 302,
     SELF = 303,
-    RETURN = 304,
-    NUM = 305,
-    STR_LITERAL = 306,
-    OR = 307,
-    AND = 308
+    PROTECTED = 304,
+    RETURN = 305,
+    NUM = 306,
+    STR_LITERAL = 307,
+    OR = 308,
+    AND = 309
   };
 #endif
 /* Tokens.  */
@@ -149,17 +150,18 @@ extern int yydebug;
 #define NEW 301
 #define DELETE 302
 #define SELF 303
-#define RETURN 304
-#define NUM 305
-#define STR_LITERAL 306
-#define OR 307
-#define AND 308
+#define PROTECTED 304
+#define RETURN 305
+#define NUM 306
+#define STR_LITERAL 307
+#define OR 308
+#define AND 309
 
 /* Value type.  */
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 union YYSTYPE
 {
-#line 29 "compiler.y"
+#line 33 "compiler.y"
 
     struct ASTNode* node;
     struct param* parameter;
@@ -169,7 +171,7 @@ union YYSTYPE
     char* string;
     int type;
 
-#line 173 "y.tab.h"
+#line 175 "y.tab.h"
 
 };
 typedef union YYSTYPE YYSTYPE;

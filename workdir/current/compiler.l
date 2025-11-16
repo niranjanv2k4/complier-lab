@@ -13,6 +13,7 @@
     int yywrap(); 
 
 %}
+%option yylineno
 
 digit     [0-9]+
 letter     [a-zA-Z]
@@ -86,6 +87,7 @@ letter     [a-zA-Z]
 "delete"        {   return DELETE;  }
 "new"           {   return NEW; }
 "self"          {   return SELF;    }
+"PROTECTED"     {   return PROTECTED;   }
 
 {letter}({letter}|{digit}|_)*          {   yylval.string = strdup(yytext); 
                     return ID;  

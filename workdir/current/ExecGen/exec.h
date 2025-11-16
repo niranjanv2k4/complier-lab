@@ -15,7 +15,7 @@ int getLoopEnd(void);
 
 extern int newLabel;
 extern struct param* paramlist;
-extern bool isInsideClass;
+extern bool classDef;
 
 /* -----output generation----- */
 
@@ -24,7 +24,9 @@ void createOutput(struct ASTNode* root, FILE* output);
 void evaluator(struct ASTNode* root);
 
 void setHeader(FILE* output);
-void generateFunct(FILE* output, char* id, struct ASTNode* code);
+void generateFunct(FILE* output, char* id, struct ASTNode* code, struct param* paramlist);
 
 void exitProg(FILE* output);
+
+void setUpVirtualFunctTable(FILE* output);
 #endif

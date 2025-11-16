@@ -8,8 +8,7 @@ int getAddr(FILE* output, struct ASTNode* node){
     int reg = getReg();
     if(node->nodetype == NODE_SELF){
         fprintf(output, "MOV R%d, BP\n", reg);
-        fprintf(output, "SUB R%d, 3\n", reg);
-        // fprintf(output, "MOV R%d, [R%d]\n", reg, reg);
+        fprintf(output, "SUB R%d, 4\n", reg);
         return reg;
     }
 
@@ -131,37 +130,51 @@ int evaluate(struct ASTNode* root, FILE* output){
             /* pushing arguments */
             struct ASTNode* tempArglist = root->ptr1->arglist;
             while(tempArglist){
-                int res;
-
-                if(tempArglist->type && tempArglist->type->category == TYPE_PRIMITIVE)
-                    res = evaluate(tempArglist, output);
-                else{
-                    res = getIdentifierAddr(output, tempArglist);
-                    fprintf(output, "MOV R%d, [R%d]\n", res, res);
-                }
-
+                int res = evaluate(tempArglist, output);;
                 fprintf(output, "PUSH R%d\n", res);
                 freeReg(res);
                 tempArglist= tempArglist->arglist;
             }
 
             int self;
-            if(root->ptr1->method){
+            if(root->method){
                 self = getIdentifierAddr(output, root->ptr1->ptr1);
+                int temp = getReg();
+                fprintf(output, "MOV R%d, R%d\n", temp, self);
                 fprintf(output, "MOV R%d, [R%d]\n", self, self);
                 fprintf(output, "PUSH R%d\n", self);
+                fprintf(output, "ADD R%d, %d\n", temp, 1);
+                fprintf(output, "MOV R%d, [R%d]\n", temp, temp);
+                fprintf(output, "PUSH R%d\n", temp);
+                freeReg(temp);
             }
 
             fprintf(output, "PUSH R%d\n", res);
-            if(root->ptr1->Gentry)
+
+            if(root->ptr1->Gentry){
+                // fprintf(output, "BRKP\n");
                 fprintf(output, "CALL __F%d\n", root->ptr1->Gentry->flabel);
-            else
-                fprintf(output, "CALL __C%d\n", root->ptr1->method->Flabel);
+            }
+            else{
+                int addr = getIdentifierAddr(output, root->ptr1->ptr1);
+                int temp = getReg();
+                // fprintf(output, "BRKP\n");
+                fprintf(output, "ADD R%d, 1\n", addr);
+                fprintf(output, "MOV R%d, [R%d]\n", addr, addr);
+                fprintf(output, "ADD R%d, %d\n", addr, root->method->funcposition);
+                fprintf(output, "MOV R%d, [R%d]\n", addr, addr);
+
+                fprintf(output, "CALL R%d\n", addr);
+
+                freeReg(addr);
+                freeReg(temp);
+            }
 
             /* taking the return value */
-            fprintf(output, "POP R%d\nBRKP\n", res);
+            fprintf(output, "POP R%d\n", res);
             
-            if(root->ptr1->method){
+            if(root->method){
+                fprintf(output, "POP R%d\n", self);
                 fprintf(output, "POP R%d\n", self);
                 freeReg(self);
             }
@@ -383,7 +396,7 @@ int codeGen(struct ASTNode* root, FILE* output){
     if(!root){
         return -1;
     }
-    
+
     switch (root->nodetype){
         case NODE_ADD:
         case NODE_SUB:
@@ -419,6 +432,11 @@ int codeGen(struct ASTNode* root, FILE* output){
             int leftAddr = getIdentifierAddr(output, root->ptr1);
 
             fprintf(output, "MOV [R%d], R%d\n", leftAddr, res);
+
+            if(root->ptr1->class){
+                fprintf(output, "ADD R%d, 1\n", leftAddr);
+                fprintf(output, "MOV [R%d], %d\n", leftAddr, STACK_BASE + (MAX_FIELDS*root->class->classindex));
+            }
             freeReg(leftAddr);
             freeReg(temp);
             freeReg(res);
@@ -473,6 +491,20 @@ int codeGen(struct ASTNode* root, FILE* output){
             struct ASTNode* left = root->ptr1;
             struct ASTNode* right = root->ptr2;
             
+            if(root->ptr1->class){
+                int leftAddr = getIdentifierAddr(output, left);
+                int rightAddr = getIdentifierAddr(output, right);
+
+                fprintf(output, "MOV [R%d], [R%d]\n", leftAddr, rightAddr);
+                fprintf(output, "ADD R%d, 1\nADD R%d, 1\n", leftAddr, rightAddr);
+                fprintf(output, "MOV [R%d], [R%d]\n", leftAddr, rightAddr);
+
+                freeReg(leftAddr);
+                freeReg(rightAddr);
+
+                return -1;
+            }
+
             int res = evaluate(right, output);
             int addr = getIdentifierAddr(output, left);
             
@@ -544,16 +576,42 @@ int codeGen(struct ASTNode* root, FILE* output){
     }
 }
 
-void generateFunct(FILE* output, char* id, struct ASTNode* code){
+void setUpVirtualFunctTable(FILE* output){
+    struct Classtable* temp = CTable;
+    int reg = getReg();
+
+    int base = STACK_BASE;
+    // fprintf(output, "BRKP\n");
+    while(temp){
+        struct Methodlist* m = temp->methods;
+        int currentAddr = base;
+        while(m){
+            fprintf(output, "MOV [%d], __C%d\n", currentAddr, m->Flabel);
+            currentAddr++;
+            m = m->next;
+        }
+        base += MAX_FIELDS;
+        temp = temp->next;
+    }
+
+    // fprintf(output, "BRKP\n");
+}
+
+void generateFunct(FILE* output, char* id, struct ASTNode* code, struct param* paramlist){
 
     if(id == NULL){
         fprintf(output, "MAIN:\n");
+        setUpVirtualFunctTable(output);
+        fprintf(output, "MOV SP, %d\n", currBinding + 2);
+
         struct LSymbol* tempLST = LST;
 
         fprintf(output, "MOV BP, SP\n");
 
         while(tempLST){
             fprintf(output, "PUSH R0\n");
+            if(tempLST->class)
+                fprintf(output, "PUSH R0\n");
             tempLST = tempLST->next;
         }
         codeGen(code, output);
@@ -562,13 +620,12 @@ void generateFunct(FILE* output, char* id, struct ASTNode* code){
         return;
     }
     
-    if(!isInsideClass){
+    if(!classDef){
         struct ASTNode* functNode = createLeafNode(NODE_ID, NULL, id, 0, 0);
         setGType(functNode);
 
         fprintf(output, "__F%d:\n", functNode->Gentry->flabel);
 
-        fprintf(output, "BRKP\n");
 
         fprintf(output, "PUSH BP\nMOV BP, SP\n");
         
@@ -582,16 +639,16 @@ void generateFunct(FILE* output, char* id, struct ASTNode* code){
         }
         while(tempLST){
             fprintf(output, "PUSH R0\n");
+            if(tempLST->class)
+                fprintf(output, "PUSH R0\n");
             tempLST = tempLST->next;
         }
 
     }else{
-
-        struct Methodlist* method = ClassMLookup(current_class, id);
+        struct Methodlist* method = ClassMLookup(current_class, id, paramlist, NULL, NULL);
 
         fprintf(output, "__C%d:\n", method->Flabel);
 
-        fprintf(output, "BRKP\n");
         fprintf(output, "PUSH BP\nMOV BP, SP\n");
 
         struct param* tempParamlist = method->paramlist;
@@ -610,6 +667,7 @@ void generateFunct(FILE* output, char* id, struct ASTNode* code){
 
     codeGen(code, output);
 
+    
     fprintf(output, "POP BP\n");
     fprintf(output, "RET\n");
     
@@ -627,7 +685,6 @@ void setHeader(FILE* output){
 
     if(headerSet){
         fprintf(output, "0\n2056\n0\n0\n0\n0\n0\n0\n");
-        fprintf(output, "MOV SP, %d\n", currBinding + 2);
 
         int start = getNewLabel(), end = getNewLabel();
         int baseAddr = getReg(), nextAddr = getReg(), temp = getReg();

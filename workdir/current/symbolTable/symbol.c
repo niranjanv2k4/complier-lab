@@ -49,9 +49,8 @@ struct GSymbol* insertToGlobal(char* id, int size, int rowSize, int colSize, str
     node->name = id;
 
     node->size = (colSize*rowSize != 0)?colSize*rowSize:1;
-    // printf("\n%s\n", id);
-    node->type = current_type;
     node->class = current_class;
+    node->type = current_type;
 
     node->rowSize = rowSize;
     node->colSize = colSize;
@@ -63,7 +62,7 @@ struct GSymbol* insertToGlobal(char* id, int size, int rowSize, int colSize, str
     if(nodetype == NODE_FUNCT){
         node->flabel = Flabel++;
     }else{
-        node->binding = getMem(node->size);
+        node->binding = getMem(node->class?node->size+1:node->size);
     }
 
     node->next = NULL;
@@ -231,7 +230,6 @@ void validateFunct(struct Typetable* type, char* id, struct param* paramlist, st
         }
         temp = temp->next;
     }
-    printGST();
 
     if(temp==NULL){
         printf("Error: No function '%s' declared\n", id);
@@ -278,7 +276,8 @@ void validateFunct(struct Typetable* type, char* id, struct param* paramlist, st
     while(tempLST){
         if(relativeAddr == -2)
             relativeAddr = 1;
-        tempLST->binding = relativeAddr++;
+        tempLST->binding = relativeAddr;
+        relativeAddr++;
         tempLST=tempLST->next;
     }
 
@@ -355,10 +354,10 @@ void printLST(char* name){
 void printGST(){
     struct GSymbol* temp = GST;
     printf("\t\tGST\n");
-    printf("%-12s %-15s %-20s\n", "name", "type/class", "Parameters/Fields");
+    printf("%-12s %-10s %-15s %-20s\n", "name", "binding", "type/class", "Parameters/Fields");
 
     while(temp){
-        printf("%-12s %-10s ", temp->name, (temp->type!=NULL?temp->type->name:temp->class->name));
+        printf("%-12s %-10d %-10s ", temp->name, temp->binding, (temp->type!=NULL?temp->type->name:temp->class->name));
 
         if(temp->flabel != -1){
             printf("  ");
@@ -407,4 +406,3 @@ void clearLST() {
     }
     LST = NULL;
 }
-

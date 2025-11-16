@@ -10,6 +10,7 @@
 #define STACK_BASE 4096
 #define HEAP_BASE 1024
 #define HB_SIZE 8
+#define MAX_FIELDS 8
 
 enum NodeType {
     NODE_CONST,
@@ -75,7 +76,6 @@ struct GSymbol{
 
     int size;
     int binding;
-    bool isPointer;
     
     int rowSize;
     int colSize;
@@ -123,6 +123,7 @@ struct Fieldlist {
     char *name;
     struct Typetable *type;
     struct Classtable *class;
+    bool isProtected;
     int fieldIndex;
     struct Fieldlist *next;
 };
