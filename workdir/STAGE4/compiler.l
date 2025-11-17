@@ -65,6 +65,10 @@ letter     [a-zA-Z]
 "enddecl"       {   return ENDDECL; }
 "int"           {   return INT; }
 "str"           {   return STR; }
+"pair"          {   return PAIR;    }
+"first"         {   return FIRST;   }
+"second"        {   return SECOND;  }
+"."             {   return DOT; }
 
 {letter}({letter}|{digit})*          {   yylval.node = createLeafNode(NO_TYPE, strdup(yytext), 0, NULL); 
                     return ID;  

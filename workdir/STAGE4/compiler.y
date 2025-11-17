@@ -15,6 +15,8 @@
 
     struct Gnode* list = NULL;
     int current_type;
+    struct PairList* pairs = NULL;
+    char* currName = NULL;
 
 %}
 
@@ -26,7 +28,7 @@
 %token ADD SUB STAR DIV MOD
 %token T_BEGIN T_END READ WRITE ASSGN EOL
 
-%token IF THEN ELSE ENDIF GE LE EQ GT LT NE WHILE DO END_WHILE BREAK CONTINUE REPEAT UNTILL DECL ENDDECL INT STR
+%token IF THEN ELSE ENDIF GE LE EQ GT LT NE WHILE DO END_WHILE BREAK CONTINUE REPEAT UNTILL DECL ENDDECL INT STR PAIR DOT FIRST SECOND
 
 %token <node> NUM ID STR_LITERAL
 
@@ -94,20 +96,24 @@ Decl        :   Type Varlist  EOL                                       {  }
             ;
 Type        :   INT                                                     {   current_type = TYPE_ID_INT;  }
             |   STR                                                     {   current_type = TYPE_ID_STR;  }
+            |   PAIR ID '(' INT ',' STR ')'                  {   current_type = TYPE_ID_PAIR;currName = strdup($2->varname);pairs = installPair($2->varname, TYPE_ID_INT, TYPE_ID_STR);    }
+            |   PAIR ID '(' INT ',' INT ')'                  {   current_type = TYPE_ID_PAIR;currName = strdup($2->varname);pairs = installPair($2->varname, TYPE_ID_INT, TYPE_ID_INT);    }
+            |   PAIR ID '(' STR ',' STR ')'                  {   current_type = TYPE_ID_PAIR;currName = strdup($2->varname);pairs = installPair($2->varname, TYPE_ID_STR, TYPE_ID_STR);    }
+            |   PAIR ID '(' STR ',' INT ')'                  {   current_type = TYPE_ID_PAIR;currName = strdup($2->varname);pairs = installPair($2->varname, TYPE_ID_STR, TYPE_ID_INT);    }
             ;
-Varlist     :   Varlist ',' ID                                          {   list = insert(list, $3, current_type, 1, 1, false);    }
-            |   Varlist ',' ID '[' NUM ']'                              {   list = insert(list, $3, current_type, 1, ($5)->val, true);  }
-            |   Varlist ',' ID '[' NUM ']''[' NUM ']'                   {   list = insert(list, $3, current_type, ($5)->val, ($8)->val, true);  }
-            |   ID                                                      {   list = insert(list, $1, current_type, 1, 1, false);    }
-            |   ID '[' NUM ']'                                          {   list = insert(list, $1, current_type, 1, ($3)->val, true);    }
-            |   ID '[' NUM ']''[' NUM ']'                               {   list = insert(list, $1, current_type, ($3)->val, ($6)->val, true);   }
+Varlist     :   Varlist ',' ID                                          {   list = insert(list, $3, currName, current_type, 1, 1, false);    }
+            |   Varlist ',' ID '[' NUM ']'                              {   list = insert(list, $3, currName, current_type, 1, ($5)->val, true);  }
+            |   Varlist ',' ID '[' NUM ']''[' NUM ']'                   {   list = insert(list, $3, currName, current_type, ($5)->val, ($8)->val, true);  }
+            |   ID                                                      {   list = insert(list, $1, currName, current_type, 1, 1, false);    }
+            |   ID '[' NUM ']'                                          {   list = insert(list, $1, currName, current_type, 1, ($3)->val, true);    }
+            |   ID '[' NUM ']''[' NUM ']'                               {   list = insert(list, $1, currName, current_type, ($3)->val, ($6)->val, true);   }
             |   Varlist ',' STAR ID                                  {   
                                                                             int temp = current_type==TYPE_ID_INT?TYPE_INT_PTR:TYPE_STR_PTR;
-                                                                            list = insert(list, $4, temp, 1, 1, false);
+                                                                            list = insert(list, $4, currName, temp, 1, 1, false);
                                                                         }
             |   STAR ID                                                 {   
                                                                             int temp = current_type==TYPE_ID_INT?TYPE_INT_PTR:TYPE_STR_PTR;
-                                                                            list = insert(list, $2, temp, 1, 1, false);
+                                                                            list = insert(list, $2, currName, temp, 1, 1, false);
                                                                         }
             ;
 
@@ -147,6 +153,8 @@ IDENTIFIERS :   ID                                  {
                                                         $2 = createDerefNode($2);
                                                         $$ = $2;
                                                     }
+            |   ID DOT FIRST                        {   setType(list, $1);  $$ = createPairNode(NODE_FIRST, $1); }
+            |   ID DOT SECOND                       {   setType(list, $1);  $$ = createPairNode(NODE_SECOND, $1);    }
             ;
         
 %%

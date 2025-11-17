@@ -52,19 +52,16 @@ int freeReg(int reg){
 int getNewLabel(){
     return newLabel++;
 }
-
-// int outOfBoundCheck(FILE* output, struct tnode* id){
-//     int temp1 = exprEvaluate(output, id->left);
-
-//     if(id->right == NULL){
-//         int temp = getReg();
-//         int label = getNewLabel();
-//         fprintf(output, "MOV R%d, %d\n", temp, id->STentry->colSize);
-//         fprintf(output, "LE R%d, R%d\n", temp, temp1);
-//         fprintf(output, "JNZ R%d, L%d\n", temp, label);
-//         fprintf(output, )
-//     }
-// }
+int getPairAddr(struct tnode* id, FILE* output){
+    int reg = getReg();
+    int addr = id->left->STentry->binding;
+    if(id->right->nodetype == NODE_SECOND){
+        addr++;
+    }
+    fprintf(output, "MOV R%d, %d\n", reg, addr);
+    return reg;
+    
+}
 
 /* -----I/O managing----- */
 void writeToTerminal(FILE* output, int reg){
@@ -98,7 +95,10 @@ void readFromTerminal(FILE* output, struct tnode* root){
 
     if(root->nodetype == NODE_DEREF){
         fprintf(output, "MOV R%d, [%d]\n", reg, root->left->STentry->binding);
-    }else{
+    }else if(root->nodetype == NODE_PAIR_ACCESS){
+        reg = getPairAddr(root, output);
+    }
+    else{
     
         int addr = root->STentry->binding;
         fprintf(output, "MOV R%d, %d\n", reg, addr);
@@ -196,8 +196,14 @@ int exprEvaluate(struct tnode* root, FILE* output){
                 }
                 
                 fprintf(output, "MOV R%d, [R%d]\n", reg, reg);
+                break;
             }
         }
+        return reg;
+    }
+    if(root->nodetype == NODE_PAIR_ACCESS){
+        int reg = getPairAddr(root, output);
+        fprintf(output, "MOV R%d, [R%d]\n", reg, reg);
         return reg;
     }
     if(root->nodetype == NODE_DEREF){
@@ -421,6 +427,7 @@ void generateRptUtlBlock(FILE* output, struct tnode* root){
     popLoop();
 }
 
+
 int codeGen(struct tnode* root, FILE* output){
     if(!root)
         return -1;
@@ -516,6 +523,27 @@ int codeGen(struct tnode* root, FILE* output){
                 fprintf(output, "MOV [%d], [%d]\n", root->left->STentry->binding, root->right->STentry->binding);
                 return -1;
             }
+
+
+            if(root->left->type == TYPE_ID_PAIR){
+                int leftaddr = root->left->STentry->binding;
+                int rightaddr = root->right->STentry->binding;
+                fprintf(output, "MOV [%d], [%d]\n", leftaddr, rightaddr);
+                fprintf(output, "MOV [%d], [%d]\n", leftaddr+1, rightaddr+1);
+                return -1;
+            }
+            if(root->left->nodetype == NODE_PAIR_ACCESS && root->right->nodetype == NODE_PAIR_ACCESS){
+                int leftaddr = getPairAddr(root->left, output);
+                int rightaddr = getPairAddr(root->right, output);
+                fprintf(output, "MOV [R%d], [R%d]\n", leftaddr, rightaddr);
+                return -1;
+            }
+            if(root->left->nodetype == NODE_PAIR_ACCESS){
+                int leftaddr = getPairAddr(root->left, output);
+                int rightVal = exprEvaluate(root->right, output);
+                fprintf(output, "MOV [R%d], R%d\n", leftaddr, rightVal);
+                return -1;
+            }
             int res = exprEvaluate(root->right, output);
 
             if(root->left->nodetype == NODE_DEREF){  
@@ -529,6 +557,7 @@ int codeGen(struct tnode* root, FILE* output){
                 freeReg(res);
                 return -1;
             }
+
 
                     
             int reg = getReg();

@@ -19,6 +19,10 @@ void setType(struct Gnode* head, struct tnode* id){
 
     id->STentry = temp;
     id->type = temp->type;
+    
+    if(temp->typeName){
+        id->typeName = strdup(temp->typeName);
+    }
 }
 
 struct Gnode* lookup(struct Gnode* head, char* name){
@@ -34,7 +38,7 @@ struct Gnode* lookup(struct Gnode* head, char* name){
     return NULL;
 }
 
-struct Gnode* insert(struct Gnode* head, struct tnode* id, int type, int rowSize, int colSize, bool isArray){
+struct Gnode* insert(struct Gnode* head, struct tnode* id, char* typeName, int type, int rowSize, int colSize, bool isArray){
 
     if(lookup(head, id->varname)!=NULL){
         printf("Variable '%s' already declared\n", id->varname);
@@ -53,12 +57,16 @@ struct Gnode* insert(struct Gnode* head, struct tnode* id, int type, int rowSize
     node->colSize = colSize;
 
     node->size = rowSize*colSize;
-    node->binding = getMem(node->size);
+    node->binding = getMem((type == TYPE_ID_PAIR?2:node->size));
 
     node->next = NULL;
 
     id->STentry = node;
     id->type = type;
+
+    if(type == TYPE_ID_PAIR){
+        node->typeName = strdup(typeName);
+    }
 
     if(head==NULL){
         return node;
@@ -86,21 +94,38 @@ void printST(struct Gnode* head){
     }
 }
 
-/* currently useless*/
-// void Assign(struct Gnode* head, struct tnode* id, struct tnode* expr){
+struct PairList* Plookup(char* name){
+    struct PairList* temp = pairs;
+    while(temp){
+        if(strcmp(temp->name, name)==0){
+            return temp;
+        }
+        temp = temp->next;
+    }
 
-//     setType(head, id);
-    
-//     if(id->type == TYPE_ID_INT){
-//         if(expr->type!=TYPE_INT && expr->type != TYPE_ID_INT){
-//             printf("Type mismatch\n");
-//             exit(1);
-//         }
-//     }
-//     if(id->type == TYPE_ID_STR){
-//         if(expr->type!=TYPE_STR && expr->type != TYPE_ID_STR){
-//             printf("Type mismatch\n");
-//             exit(1);
-//         }
-//     }
-// }
+    return NULL;
+}
+
+struct PairList* installPair(char* name, int first, int second){
+
+    if(Plookup(name) != NULL){
+        printf("Error: already declared\n");
+        exit(1);
+    }
+
+    struct PairList* node = malloc(sizeof(struct PairList));
+    node->name = strdup(name);
+    node->first = first;
+    node->second = second;
+    node->next = NULL;
+
+    if(!pairs)return node;
+
+    struct PairList* temp = pairs;
+    while(temp->next)temp=temp->next;
+    temp->next = node;
+
+    return pairs;
+}
+
+

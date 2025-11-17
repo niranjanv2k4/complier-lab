@@ -76,6 +76,19 @@ int resolveType(int nodetype, struct tnode* left, struct tnode* right) {
                 }
             }
 
+            if(leftType == TYPE_ID_PAIR && rightType == TYPE_ID_PAIR){
+                if(strcmp(left->typeName, right->typeName) == 0){
+                    return NO_TYPE;
+                }
+            }
+            
+            if(left->nodetype == NODE_PAIR_ACCESS || right->nodetype == NODE_PAIR_ACCESS){
+                if((isIntegerLike(leftType) && isIntegerLike(rightType)) || 
+                    (isStringLike(leftType) && isStringLike(rightType))){
+                        return NO_TYPE;
+                    }
+            }
+
             printf("Type mismatch in assignment\n");
             exit(1);
             
@@ -155,17 +168,33 @@ struct tnode* createArrayNode(struct tnode* id, struct tnode* row, struct tnode*
         printf("'%s' is not an array\n", id->varname);
         exit(1);
     }
-    // if(!isIntegerLike(row->nodetype)){
-    //     printf("Index should be of type 'INT'\n");
-    //     exit(1);
-    // }
-    // if(col && !isIntegerLike(col->nodetype)){
-    //     printf("Index should be of type 'INT'\n");
-    //     exit(1);
-    // }
-
     id->left = row;
     id->right = col;
 
     return id;
+}
+
+
+struct tnode* createPairNode(int type, struct tnode* id){
+    struct tnode* node = malloc(sizeof(struct tnode));
+
+    node->nodetype = NODE_PAIR_ACCESS;
+    struct tnode* right = malloc(sizeof(struct tnode));
+    right->nodetype = type;
+    
+    struct PairList* temp = Plookup(id->typeName);
+    if(!temp){
+        printf("Error: no type deaclred\n");
+        exit(1);
+    }
+    if(type == NODE_FIRST){
+        node->type = temp->first == TYPE_ID_INT?TYPE_INT:TYPE_STR;
+    }
+    if(type == NODE_SECOND){
+        node->type = temp->second == TYPE_ID_INT?TYPE_INT:TYPE_STR;
+    }
+    node->left = id;
+    node->right = right;
+
+    return node;
 }

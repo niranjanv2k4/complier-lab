@@ -1,0 +1,14 @@
+decl
+  int num, sum;
+    pair temp(int, str) a, b;
+    pair temp2(str, str) c, d;
+  str mesg;
+enddecl
+begin
+read(a.first);
+read(a.second);
+c.second = a.second;
+c.first = a.second;
+write(c.first);
+write(c.second);
+end;

@@ -6,9 +6,18 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+
+struct PairList {
+    char* name;
+    int first;
+    int second;
+    struct PairList* next;
+};
+
 struct Gnode{
     char* name;
     int type;
+    char* typeName;
     int size;
     int binding;
     
@@ -28,6 +37,7 @@ struct tnode{
     struct Gnode* STentry;
     struct tnode *left;
     struct tnode *right;
+    char* typeName;
 };
 
 #include "./constant.h"

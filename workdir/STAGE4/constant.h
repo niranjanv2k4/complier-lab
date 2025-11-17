@@ -36,7 +36,10 @@ enum NodeType {
     NODE_DOWHILE   = 29,
 
     NODE_DEREF     = 30,
-    NODE_ADDR       = 31
+    NODE_ADDR       = 31,
+    NODE_SECOND     = 32,
+    NODE_FIRST      = 33,
+    NODE_PAIR_ACCESS = 34
 };
 
 enum DataType {
@@ -47,7 +50,8 @@ enum DataType {
     TYPE_STR = 4,
     TYPE_ID_STR = 5,
     TYPE_INT_PTR = 6,
-    TYPE_STR_PTR = 7
+    TYPE_STR_PTR = 7,
+    TYPE_ID_PAIR = 8
 };
 
 #endif
