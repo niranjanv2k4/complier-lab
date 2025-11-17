@@ -1,0 +1,93 @@
+class
+    parent{
+        decl
+            int x;
+            int f(int a);
+            int setX(int a);
+        enddecl
+
+        int f(int a){
+            decl
+            enddecl
+            begin
+                write("in parent");
+                return 1;
+            end
+        }
+
+        int setX(int a){
+            decl
+            enddecl
+
+            begin
+                self.x = a;
+                return 1;
+            end
+        }
+
+    }
+
+
+    child extends parent{
+        decl
+            int y;
+            int f(int b);
+            int setY(int a);
+            int getX(int a);
+            int getY(int a);
+        enddecl
+
+        int f(int b){
+            decl
+            enddecl
+            begin
+                write("in child class");
+                return 0;
+            end
+        }
+
+        int getX(int a){
+            decl
+            enddecl
+
+            begin
+                return self.x;
+            end
+        }
+
+        int getY(int a){
+            decl
+            enddecl
+
+            begin
+                return self.y;
+            end
+        }
+    }
+endclass
+
+
+decl
+    parent obj;
+    child obj1;
+enddecl
+
+int main(){
+    decl
+        int x;
+    enddecl
+
+    begin
+        obj = new(parent);
+        obj1 = new(child);
+        x = obj.f(1);
+        obj = new(child);
+        x = obj.f(1);
+
+        x = obj.setX(1);
+        x = obj1.setX(1);
+        x = obj1.getX(1);
+        write(x);
+        return 0;
+    end
+}

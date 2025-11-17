@@ -1,0 +1,64 @@
+
+
+class
+	Calculator {
+		decl
+			int add(int a, int b);
+			int add(int a, int b, int c);
+			int add(int a, int b, int c, int d);
+		enddecl
+
+		int add(int a, int b) {
+			decl
+			enddecl
+			begin
+				return a + b;
+			end
+		}
+
+		int add(int a, int b, int c) {
+			decl
+			enddecl
+			begin
+				return a + b + c;
+			end
+		}
+		int add(int a, int b, int c, int d) {
+			decl
+			enddecl
+			begin
+				return a + b + c+d;
+			end
+		}
+}
+
+endclass
+
+
+decl
+	int result1, result2, result3;
+	Calculator myCalc;
+enddecl
+
+
+int main() {
+	decl
+		int a, b, c, n;
+	enddecl
+	begin
+
+		myCalc = new(Calculator);
+			read(a);
+			read(b);
+			read(c);
+			result1 = myCalc.add(a, b);
+			result2 = myCalc.add(a, b, c);
+
+		write("Result1 is :");
+		write(result1);
+		write("Result2 is :");
+		write(result2);
+
+		return 0;
+	end
+}
