@@ -1,8 +1,28 @@
-XSM simulator for eXpl
+# EXPL Compiler Lab
 
-Usage 
-----------
+This repository contains a complete **stage-wise implementation of the EXPL compiler**, built as part of a Compiler Laboratory.  
+The compiler is developed incrementally from **Stage 0 to Stage 8**, following the EXPL specification, using **Lex, Yacc, C, and XSM**.
 
- ./xsm [ -l <path to library> ] -e <path to program> [--debug]
+All real development happens inside the `workdir/` directory.
 
-Note: Paths must be relative
+---
+
+## Project Layout
+
+compiler-lab/
+│
+├── workdir/                     # Main working directory
+│   ├── STAGE1 ... STAGE8/       # Incremental compiler stages
+│   ├── current/                 # Final stable compiler (Mirror of STAGE8)
+│   ├── compiler/                # Shared compiler support files
+│   │
+│   ├── xsm/                     # XSM assembly programs (Stage 0 / 2)
+│   ├── lexus/                   # Lex exercises (Stage 0)
+│   ├── lexwithyacc/             # Lex + Yacc exercises (Stage 0)
+│   └── yacc/                    # Yacc exercises (Stage 0)
+│
+├── xsm_dev/                     # XSM simulator and development tools
+├── xfs-interface/               # XFS interface for disk management
+├── spl/                         # SPL (System Programmer's Language) related files
+├── Makefile                     # Root build file
+└── README.md                    # This documentation
